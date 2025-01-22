@@ -7,10 +7,9 @@ import (
 )
 
 func main() {
+	const NUMFLOORS = 4
 
-	numFloors := 4
-
-	elevio.Init("localhost:15657", numFloors)
+	elevio.Init("localhost:15657", NUMFLOORS)
 
 	var d elevio.MotorDirection = elevio.MD_Up
 	//elevio.SetMotorDirection(d)
@@ -27,11 +26,12 @@ func main() {
 
 	// Init elevator object
 	elevator := fsm.Elevator{
+
 		Floor:        0,
 		Direction:    elevio.MD_Stop,
 		Behavior:     fsm.EB_Idle,
-		HallRequests: make([][]bool, numFloors),
-		CabRequests:  make([]bool, numFloors),
+		HallRequests: make([][]bool, NUMFLOORS),
+		CabRequests:  make([]bool, NUMFLOORS),
 	}
 	for i := range elevator.HallRequests {
 		elevator.HallRequests[i] = make([]bool, 2)
@@ -58,7 +58,7 @@ func main() {
 
 		case a := <-drv_floors:
 			fmt.Printf("%+v\n", a)
-			if a == numFloors-1 {
+			if a == NUMFLOORS-1 {
 				d = elevio.MD_Down
 			} else if a == 0 {
 				d = elevio.MD_Up
@@ -75,7 +75,7 @@ func main() {
 
 		case a := <-drv_stop:
 			fmt.Printf("%+v\n", a)
-			for f := 0; f < numFloors; f++ {
+			for f := 0; f < NUMFLOORS; f++ {
 				for b := elevio.ButtonType(0); b < 3; b++ {
 					elevio.SetButtonLamp(b, f, false)
 				}

@@ -2,6 +2,7 @@ package fsm
 
 import (
 	"Driver-go/elevio"
+	"Driver-go/requests"
 	"fmt"
 )
 
@@ -30,7 +31,8 @@ func OnRequestButtonPress(elevator *Elevator, floor int, button elevio.ButtonTyp
 		} else {
 			elevator.HallRequests[floor][button] = true
 		}
-		
+		elevator.Direction, elevator.Behavior = requests.Requests_chooseDirection(elevator)
+
 	}
 
 }
