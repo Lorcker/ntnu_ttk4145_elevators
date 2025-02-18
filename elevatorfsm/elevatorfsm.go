@@ -6,11 +6,10 @@ import (
 )
 
 type Elevator struct {
-	Floor        int
-	Behavior     ElevatorBehavior
-	HallRequests [][]bool
-	CabRequests  []bool
-	Direction    elevatorio.MotorDirection
+	Floor     int
+	Behavior  ElevatorBehavior
+	Requests  [][3]bool
+	Direction elevatorio.MotorDirection
 }
 
 type ElevatorBehavior int

@@ -1,9 +1,7 @@
 package main
 
-import (
-	"group48.ttk4145.ntnu/elevators/elevatorfsm"
-)
+var _numFloors int = 4
 
 func main() {
-	
+
 }

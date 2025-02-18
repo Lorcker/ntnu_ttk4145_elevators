@@ -6,7 +6,7 @@ import (
 
 type GlobalState struct {
 	HallRequests    [][]bool
-	GlobalElevators map[string]GlobalElevator
+	GlobalElevators map[int]GlobalElevator
 }
 
 type GlobalElevator struct {
