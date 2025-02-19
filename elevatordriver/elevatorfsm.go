@@ -1,27 +1,10 @@
-package elevatorfsm
+package elevatordriver
 
 import (
-	"group48.ttk4145.ntnu/elevators/elevatorio"
-	"group48.ttk4145.ntnu/elevators/orderserver"
+	"group48.ttk4145.ntnu/elevators/models"
 )
 
-type Elevator struct {
-	Floor        int
-	Behavior     ElevatorBehavior
-	HallRequests [][]bool
-	CabRequests  []bool
-	Direction    elevatorio.MotorDirection
-}
-
-type ElevatorBehavior int
-
-const (
-	EB_Idle ElevatorBehavior = iota
-	EB_DoorOpen
-	EB_Moving
-)
-
-func HandleOrderEvent(elevator Elevator, orders orderserver.Orders) {
+func HandleOrderEvent(elevator models.Elevator, orders models.Orders) {
 	switch elevator.Behavior {
 	case EB_Idle:
 		RequestChooseDirection(&e, orders)	// Updates the elevator states if new orders are in
@@ -40,8 +23,8 @@ func HandleOrderEvent(elevator Elevator, orders orderserver.Orders) {
 
 	case EB_DoorOpen:
 		//NB RequestShouldClearImmediatly not implementd!!//
-		if RequestShouldClearImmediatly(Elevaror e, orders orderserver.Orders) {
-			RequestClearAtCurrentFloor(Elevator e, orders orderserver.Orders)
+		if RequestShouldClearImmediatly(&e, orders) {
+			RequestClearAtCurrentFloor(e, orders)
 		}
 		break
 	
@@ -53,22 +36,22 @@ func HandleOrderEvent(elevator Elevator, orders orderserver.Orders) {
 }
 }
 
-func HandleFloorsensorEvent(elevator Elevator, floor int) {
+func HandleFloorsensorEvent(elevator models.Elevator, floor int) {
 
 }
 
-func HandleRequestButtonEvent(elevator Elevator, button elevatorio.ButtonEvent) {
+func HandleRequestButtonEvent(elevator models.Elevator, button models.ButtonEvent) {
 
 }
 
-func HandleDoorTimerEvent(elevator Elevator, timer bool) {
+func HandleDoorTimerEvent(elevator models.Elevator, timer bool) {
 	// Remember to check for obstruction
 }
 
 
 
 // Little bit inspired by the given C-code :)
-func RequestChooseDirection(Elevator* e, orders orderserver.Orders) { 
+func RequestChooseDirection(e* models.Elevator, orders models.Orders) { 
 	switch e.Direction{
 	case MD_Up:
 		if 		RequestAbove(*e, orders) 		{*e.Direction = MD_Up; *e.Behavior=EB_Moving}
@@ -89,7 +72,7 @@ func RequestChooseDirection(Elevator* e, orders orderserver.Orders) {
 		else 									{*e.Direction = MD_Stop; *e.Behavior=EB_Idle}
 
 
-func RequestAbove(Elevator e, orders orderserver.Orders) int {
+func RequestAbove(e models.Elevator, orders models.Orders) int {
 	if e.floor == Nfloors {return 0}	//Already at top floor
 
 	for (int i=e.floor+1; i<Nfloors; i++) {
@@ -102,7 +85,7 @@ func RequestAbove(Elevator e, orders orderserver.Orders) int {
 	return 0
 }
 
-func RequestHere(Elevator e, orders orderserver.Orders) int {
+func RequestHere(e models.Elevator, orders models.Orders) int {
 	for (int j=0; j<NButtons; j++) {
 		if (orders[e.floor][j] == 1) {
 			return 1
@@ -111,7 +94,7 @@ func RequestHere(Elevator e, orders orderserver.Orders) int {
 	return 0
 }
 
-func RequestBelow(Elevator e, orders orderserver.Orders) int {
+func RequestBelow(e models.Elevator, orders models.Orders) int {
 	if (e.floor == 0) {return 0} 			// Already at bottom floor
 	for (int i=e.floor-1; i>=0; i--) {
 		for (int j=0; j<NButtons; j++) {
@@ -124,14 +107,14 @@ func RequestBelow(Elevator e, orders orderserver.Orders) int {
 
 }
 
-func RequestClearAtCurrentFloor(Elevator e, orders orderserver.Orders) {
+func RequestClearAtCurrentFloor(e models.Elevator, orders models.Orders) {
 	for (int j=0; j<NButtons; j++) {
 		orders[e.floor][j] = 0
 	}
 }
 
 //Finish this later
-func RequestShouldClearImmediatly(Elevaror e, orders orderserver.Orders) {
+func RequestShouldClearImmediatly(e models.Elevator, orders models.Orders) {
 
 }
 

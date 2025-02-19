@@ -1,15 +1,12 @@
 package orderserver
 
 import (
-	"group48.ttk4145.ntnu/elevators/statedataserver"
+	"group48.ttk4145.ntnu/elevators/models"
 )
 
-type Orders [][]bool
-
-func PollOrders(receiver chan<- Orders) {
-
-}
-
-func CalculateOrders(globalState <-chan statedataserver.GlobalState) {
-
+func RunOrderServer(
+	validatedRequests <-chan models.Request,
+	state <-chan models.Elevator,
+	alive <-chan []uint8,
+	orders chan<- models.Orders) {
 }
