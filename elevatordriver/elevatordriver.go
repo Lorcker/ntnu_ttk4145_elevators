@@ -1,17 +1,17 @@
 package elevatordriver
 
 import (
-	"group48.ttk4145.ntnu/elevators/elevatorfsm"
-	"group48.ttk4145.ntnu/elevators/elevatorio"
-	"group48.ttk4145.ntnu/elevators/orderserver"
+	"group48.ttk4145.ntnu/elevators/models"
 )
 
 func Starter(pollObstructionSwitch chan<- bool,
 	pollFloorSensor <-chan bool,
-	pollButtons <-chan elevatorio.ButtonEvent,
-	doorTimer <-chan bool,
-	pollOrders <-chan orderserver.Orders) {
+	pollOrders <-chan models.Orders,
+	resolvedRequests []chan<- models.Request,
+	receiver []chan<- models.ElevatorState) {
+	for {
+		switch {
+		}
+	}
 
 }
-
-func PollElevatorState(receiver chan<- elevatorfsm.Elevator) {}
