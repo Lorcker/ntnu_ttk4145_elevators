@@ -1,146 +1,299 @@
 package elevatordriver
 
 import (
+	"fmt"
+
+	"group48.ttk4145.ntnu/elevators/elevatorio"
 	"group48.ttk4145.ntnu/elevators/models"
 )
 
-func HandleOrderEvent(elevator models.Elevator, orders models.Orders) {
+var NButtons int = 3
+var NFloors int = 4
+
+func HandleOrderEvent(elevator *models.ElevatorState, orders models.Orders, recieverDoorTimer chan<- bool) {
 	switch elevator.Behavior {
-	case EB_Idle:
-		RequestChooseDirection(&e, orders)	// Updates the elevator states if new orders are in
+	case models.Idle:
+		RequestChooseDirection(elevator, orders, recieverDoorTimer) // Updates the elevator states if new orders are in
 		switch elevator.Behavior {
-		case EB_DoorOpen:
+		case models.DoorOpen:
 			//Start timer
-			RequestClearAtCurrentFloor(e, orders)
-			break
-		
-		case EB_Moving:
-			elevator.SetMotorDirection(elevator.Direction)
-			break
-		
-		case EB_Idle:
+			RequestClearAtCurrentFloor(*elevator, &orders)
 			break
 
-	case EB_DoorOpen:
+		case models.Moving:
+			elevatorio.SetMotorDirection(elevator.Direction)
+			break
+
+		case models.Idle:
+			break
+		}
+
+	case models.DoorOpen:
 		//NB RequestShouldClearImmediatly not implementd!!//
-		if RequestShouldClearImmediatly(&e, orders) {
-			RequestClearAtCurrentFloor(e, orders)
+		if RequestShouldClearImmediatly(*elevator, orders) {
+			recieverDoorTimer <- true
+			RequestClearAtCurrentFloor(*elevator, &orders)
 		}
 		break
-	
 
-	case EB_Moving:
+	case models.Moving:
 		break
-		
+
 	}
 }
+
+func HandleFloorsensorEvent(elevator *models.ElevatorState, orders models.Orders, floor int, recieverDoorTimer chan<- bool) {
+	elevator.Floor = floor
+	elevatorio.SetFloorIndicator(floor)
+	switch elevator.Behavior {
+	case models.Moving:
+		if RequestShouldStop(*elevator, orders) {
+			elevatorio.SetMotorDirection((0))
+			elevatorio.SetDoorOpenLamp(true)
+			RequestClearAtCurrentFloor(*elevator, &orders)
+			setAllElevatorLights(orders)
+			recieverDoorTimer <- true
+		}
+		break
+	default:
+		break
+	}
 }
 
-func HandleFloorsensorEvent(elevator models.Elevator, floor int) {
+func HandleRequestButtonEvent(elevator models.ElevatorState, button models.ButtonType) {
 
 }
 
-func HandleRequestButtonEvent(elevator models.Elevator, button models.ButtonEvent) {
+// When timer is done, close the door, and set in Idle/Moving.
+func HandleDoorTimerEvent(elevator *models.ElevatorState, orders models.Orders, recieverDoorTimer chan<- bool) {
+	//fmt.Printf("Dette fungerer!")
+	switch elevator.Behavior {
+	case models.DoorOpen:
+		RequestChooseDirection(elevator, orders, recieverDoorTimer)
 
-}
+		switch elevator.Behavior {
+		case models.DoorOpen:
+			recieverDoorTimer <- true
+			RequestClearAtCurrentFloor(*elevator, &orders)
+			setAllElevatorLights(orders)
+			break
 
-func HandleDoorTimerEvent(elevator models.Elevator, timer bool) {
+		case models.Moving, models.Idle:
+			elevatorio.SetDoorOpenLamp(false)
+			elevatorio.SetMotorDirection(elevator.Direction)
+			break
+		}
+		break
+
+	default:
+		break
+	}
 	// Remember to check for obstruction
 }
 
-
+func OpenDoor(elevator *models.ElevatorState) {
+	fmt.Printf("Door open\n")
+	elevatorio.SetDoorOpenLamp(true)
+	elevator.Behavior = models.DoorOpen
+}
 
 // Little bit inspired by the given C-code :)
-func RequestChooseDirection(e* models.Elevator, orders models.Orders) { 
-	switch e.Direction{
-	case MD_Up:
-		if 		RequestAbove(*e, orders) 		{*e.Direction = MD_Up; *e.Behavior=EB_Moving}
-		else if RequestHere(*e, orders) 	{*e.Direction = MD_Stop; *e.Behavior=EB_DoorOpen} // In given C-code they write Direction Down
-		else if RequestBelow(*e, orders) 	{*e.Direction = MD_Down; *e.Behavior=EB_Moving}
-		else 								{*e.Direction = MD_Stop; *e.Behavior=EB_Idle}
+func RequestChooseDirection(e *models.ElevatorState, orders models.Orders, recieverDoorTimer chan<- bool) {
+	switch e.Direction {
+	case models.Up:
+		if RequestAbove(*e, orders) {
+			e.Direction = models.Up
+			e.Behavior = models.Moving
+		} else if RequestHere(*e, orders) {
+			e.Direction = models.Stop
+			recieverDoorTimer <- true
+
+		} else if RequestBelow(*e, orders) {
+			e.Direction = models.Down
+			e.Behavior = models.Moving
+		} else {
+			e.Direction = models.Stop
+			e.Behavior = models.Idle
+		}
+
+	case models.Down:
+		if RequestBelow(*e, orders) {
+			e.Direction = models.Down
+			e.Behavior = models.Moving
+		} else if RequestHere(*e, orders) {
+			e.Direction = models.Stop
+			recieverDoorTimer <- true
+		} else if RequestAbove(*e, orders) {
+			e.Direction = models.Up
+			e.Behavior = models.Moving
+		} else {
+			e.Direction = models.Stop
+			e.Behavior = models.Idle
+		}
+
+	case models.Stop:
+		if RequestHere(*e, orders) {
+			e.Direction = models.Stop
+			recieverDoorTimer <- true
+		} else if RequestAbove(*e, orders) {
+			e.Direction = models.Up
+			e.Behavior = models.Moving
+		} else if RequestBelow(*e, orders) {
+			e.Direction = models.Down
+			e.Behavior = models.Moving
+		} else {
+			e.Direction = models.Stop
+			e.Behavior = models.Idle
+		}
 	}
-	case MD_Down:
-		if 		RequestBelow(*e, orders) 	{*e.Direction = MD_Down; *e.Behavior=EB_Moving}
-		else if RequestHere(*e, orders) 	{*e.Direction = MD_Stop; *e.Behavior=EB_DoorOpen}
-		else if RequestAbove(*e, orders) 	{*e.Direction = MD_Up; *e.Behavior=EB_Moving}
-		else 								{*e.Direction = MD_Stop; *e.Behavior=EB_Idle}
-	}
-	case MD_Stop:
-		if 			RequestHere(*e, orders) 	{*e.Direction = MD_Stop; *e.Behavior=EB_DoorOpen}
-		else if 	RequestAbove(*e, orders) 	{*e.Direction = MD_Up; *e.Behavior=EB_Moving}
-		else if  	RequestBelow(*e, orders) 	{*e.Direction = MD_Down; *e.Behavior=EB_Moving}
-		else 									{*e.Direction = MD_Stop; *e.Behavior=EB_Idle}
+}
 
+func RequestAbove(e models.ElevatorState, orders models.Orders) bool {
+	if e.Floor >= (NFloors - 1) {
+		return false
+	} //Already at top floor
 
-func RequestAbove(e models.Elevator, orders models.Orders) int {
-	if e.floor == Nfloors {return 0}	//Already at top floor
-
-	for (int i=e.floor+1; i<Nfloors; i++) {
-		for (int j=0; j<NButtons; j++) {
-			if orders[i][j] == 1 {
-				return 1
+	for i := (e.Floor + 1); i < NFloors; i++ {
+		for j := 0; j < NButtons; j++ {
+			if orders[i][j] == true {
+				return true
 			}
 		}
 	}
-	return 0
+	return false
 }
 
-func RequestHere(e models.Elevator, orders models.Orders) int {
-	for (int j=0; j<NButtons; j++) {
-		if (orders[e.floor][j] == 1) {
-			return 1
+func RequestHere(e models.ElevatorState, orders models.Orders) bool {
+	for j := 0; j < NButtons; j++ {
+		if orders[e.Floor][j] == true {
+			return true
 		}
 	}
-	return 0
+	return false
 }
 
-func RequestBelow(e models.Elevator, orders models.Orders) int {
-	if (e.floor == 0) {return 0} 			// Already at bottom floor
-	for (int i=e.floor-1; i>=0; i--) {
-		for (int j=0; j<NButtons; j++) {
-			if orders[i][j] == 1 {
-				return 1
+func RequestBelow(e models.ElevatorState, orders models.Orders) bool {
+	if e.Floor == 0 {
+		return false
+	} // Already at bottom floor
+	for i := e.Floor - 1; i >= 0; i-- {
+		for j := 0; j < NButtons; j++ {
+			if orders[i][j] == true {
+				return true
 			}
 		}
 	}
-	return 0
+	return false
 
 }
 
-func RequestClearAtCurrentFloor(e models.Elevator, orders models.Orders) {
-	for (int j=0; j<NButtons; j++) {
-		orders[e.floor][j] = 0
+// Skriv ferdig denne?
+func RequestClearAtCurrentFloor(e models.ElevatorState, orders *models.Orders) {
+	clearRequestVariant := true //Definisjon. True: Alle ordre skal fjernes fra etasjen (alle går på). False: Bare de i samme retning.
+	if clearRequestVariant {
+		for j := 0; j < NButtons; j++ {
+			(*orders)[e.Floor][j] = false
+		}
+	} else {
+		switch e.Direction {
+		case models.Up:
+			if !RequestAbove(e, (*orders)) && !(*orders)[e.Floor][models.HallUp] {
+				(*orders)[e.Floor][models.HallDown] = false
+			}
+			(*orders)[e.Floor][models.HallUp] = false
+			break
+
+		case models.Down:
+			if !RequestBelow(e, (*orders)) && !(*orders)[e.Floor][models.HallDown] {
+				(*orders)[e.Floor][models.HallUp] = false
+			}
+			(*orders)[e.Floor][models.HallDown] = false
+			break
+
+		case models.Stop:
+		default:
+			(*orders)[e.Floor][models.HallDown] = false
+			(*orders)[e.Floor][models.HallUp] = false
+			break
+		}
+
+	}
+
+}
+
+func RequestShouldStop(e models.ElevatorState, orders models.Orders) bool {
+	switch e.Direction {
+	case models.Down:
+		if RequestHere(e, orders) || (!RequestBelow(e, orders)) {
+			return true // Stop if no orders here, or below
+		} else {
+			return false
+		}
+	case models.Up:
+		if RequestHere(e, orders) || (!RequestAbove(e, orders)) {
+			return true
+		} else {
+			return false
+		}
+	case models.Stop:
+		{
+			return true
+		}
+	default:
+		{
+			return true
+		}
 	}
 }
 
-//Finish this later
-func RequestShouldClearImmediatly(e models.Elevator, orders models.Orders) {
+// Decision: Have to decide if everyone will get in the elevator, even tho they might be going in the opposite direction.
 
+func RequestShouldClearImmediatly(e models.ElevatorState, orders models.Orders) bool {
+	EverybodyGoesOn := true
+
+	if EverybodyGoesOn {
+		for i := 0; i < NButtons; i++ {
+			if orders[e.Floor][i] {
+				return true
+			}
+		}
+		return false
+	} else {
+		switch e.Direction {
+		case models.Up:
+			if orders[e.Floor][models.HallUp] {
+				return true
+			} else {
+				return false
+			}
+
+		case models.Down:
+			if orders[e.Floor][models.HallDown] {
+				return true
+			} else {
+				return false
+			}
+
+		case models.Stop:
+			if orders[e.Floor][models.Cab] {
+				return true
+			} else {
+				return false
+			}
+		default:
+			return false
+		}
+	}
 }
 
-// func HandleOrderEvent(elevator Elevator, orders orderserver.Orders) {
-// 	int closest_order_f = inf
-// 	int current_order_floor = 0
-// 	int current_order_distance = 0 
-// 	Nfloors = 4; NButtons = 3;
-
-// 	switch Elevator.Behavior {
-// 	case EB_Idle:
-// 		//Find out which floor the order is coming from
-// 		for (int i=0; i<Nfloors*NButtons; i++) {
-// 			if (orders[i] == 1) {
-// 				current_order_floor = i % Nfloors
-// 				current_order_distance = Elevator.Floor - current_order_floor
-// 			}
-// 		}
-// 		continue
-	
-// 	case EB_DoorOpen:
-// 		continue
-	
-// 	case EB_Moving:
-// 		continue
-	
-	
-// 	}
-// }
+func setAllElevatorLights(orders models.Orders) {
+	for i := 0; i < len(orders); i++ {
+		for j := 0; j < len(orders[i]); j++ {
+			if orders[i][j] == true {
+				elevatorio.SetButtonLamp(models.ButtonType(j), i, true)
+			} else {
+				elevatorio.SetButtonLamp(models.ButtonType(j), i, false)
+			}
+		}
+	}
+}
