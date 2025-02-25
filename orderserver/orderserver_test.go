@@ -2,54 +2,61 @@ package orderserver
 
 import (
 	"fmt"
+	"sync"
 	"testing"
+	"time"
 
-	"group48.ttk4145.ntnu/elevators/statedataserver"
+	"group48.ttk4145.ntnu/elevators/models"
 )
-
-// TestPollOrders tests the PollOrders function
-func TestPollOrders(t *testing.T) {
-	fmt.Println("TestPollOrders")
-}
 
 // TestCalculateOrders tests the CalculateOrders function
 func TestCalculateOrders(t *testing.T) {
 	// Create a channel for the global state
-	channels := make(chan statedataserver.GlobalState)
+	fmt.Println("TestCalculateOrders started")
+	validatedRequests := make(chan models.Request, 1)
+	alive := make(chan []models.Id, 1)
+	orders := make(chan models.Orders, 1)
+	state := make(chan models.ElevatorState, 1)
 
-	go CalculateOrders(channels)
+	var wg sync.WaitGroup
+	wg.Add(1)
 
-	channels <- statedataserver.GlobalState{
-		HallRequests: [][]bool{
-			{false, false},
-			{false, false},
-			{false, false},
-			{false, false},
-		},
-		GlobalElevators: map[int]statedataserver.GlobalElevator{
-			0: {
-				Floor:       0,
-				Behavior:    statedataserver.EB_Idle,
-				CabRequests: []bool{false, false, false, false},
-				Direction:   0,
-				IsAlive:     true,
-			},
-			1: {
-				Floor:       1,
-				Behavior:    statedataserver.EB_Idle,
-				CabRequests: []bool{false, false, false, false},
-				Direction:   0,
-				IsAlive:     true,
-			},
-			2: {
-				Floor:       3,
-				Behavior:    statedataserver.EB_Idle,
-				CabRequests: []bool{true, false, false, false},
-				Direction:   0,
-				IsAlive:     true,
-			},
-		},
+	go func() {
+		defer wg.Done()
+		RunOrderServer(validatedRequests, state, alive, orders)
+	}()
+	// Send test data to the channels
+	alive <- []models.Id{1, 2}
+	state <- models.ElevatorState{
+		Id:        1,
+		Floor:     0,
+		Direction: models.Stop,
+		Behavior:  models.Idle,
 	}
-	print("TestCalculateOrders done")
+	validatedRequests <- models.Request{
+		Origin: models.Origin{
+			Source:     models.Hall{},
+			Floor:      1,
+			ButtonType: models.HallUp,
+		},
+		Status: models.Confirmed,
+	}
+
+	// Wait for the goroutine to process the input
+	wg.Wait()
+
+	// Check the output from the orders channel
+	select {
+	case o := <-orders:
+		if len(o) == 0 {
+			t.Errorf("Expected non-empty orders, got empty orders")
+		} else {
+			fmt.Println("Orders received:", o)
+		}
+	case <-time.After(1 * time.Second):
+		t.Errorf("Timeout waiting for orders")
+	}
+
+	fmt.Println("TestCalculateOrders done")
 
 }

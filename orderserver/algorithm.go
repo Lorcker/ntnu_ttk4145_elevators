@@ -1,105 +1,94 @@
 package orderserver
 
-import "group48.ttk4145.ntnu/elevators/models"
+import (
+	"slices"
 
-func requestsAbove(e models.ElevatorState) bool {
-	for i := e.Floor + 1; i < len(e.Requests); i++ {
-		for _, req := range e.Requests[i] {
-			if req {
-				return true
-			}
-		}
-	}
-	return false
-}
+	"group48.ttk4145.ntnu/elevators/models"
+)
 
-func requestsBelow(e models.ElevatorState) bool {
-	for i := 0; i < e.Floor; i++ {
-		for _, req := range e.Requests[i] {
-			if req {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func anyRequests(e elevatorfsm.Elevator) bool {
-	for _, floorRequests := range e.Requests {
-		for _, req := range floorRequests {
-			if req {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func anyRequestsAtFloor(e elevatorfsm.Elevator) bool {
-	for _, req := range e.Requests[e.Floor] {
-		if req {
+func requestsAbove(e localElevator) bool {
+	for _, floorRequests := range e.requests[e.Floor+1:] {
+		if any(floorRequests[:]) {
 			return true
 		}
 	}
-
 	return false
 }
 
-func shouldStop(e elevatorfsm.Elevator) bool {
+func requestsBelow(e localElevator) bool {
+	for _, floorRequests := range e.requests[:e.Floor] {
+		if any(floorRequests[:]) {
+			return true
+		}
+	}
+	return false
+}
+
+func anyRequests(e localElevator) bool {
+	for _, floorRequests := range e.requests {
+		if slices.Contains(floorRequests[:], true) {
+			return true
+		}
+	}
+	return false
+}
+
+func anyRequestsAtFloor(e localElevator) bool {
+	for _, request := range e.requests[e.Floor] {
+		if request {
+			return true
+		}
+	}
+	return false
+}
+
+func shouldStop(e localElevator) bool {
 	switch e.Direction {
-	case elevatorio.MD_Up:
-		return e.Requests[e.Floor][elevatorio.BT_HallUp] ||
-			e.Requests[e.Floor][elevatorio.BT_Cab] ||
-			!requestsAbove(e) ||
-			e.Floor == 0 ||
-			e.Floor == len(e.Requests)-1
-	case elevatorio.MD_Down:
-		return e.Requests[e.Floor][elevatorio.BT_HallDown] ||
-			e.Requests[e.Floor][elevatorio.BT_Cab] ||
-			!requestsBelow(e) ||
-			e.Floor == 0 ||
-			e.Floor == len(e.Requests)-1
-	case elevatorio.MD_Stop:
+	case models.Up:
+		return any(e.requests[e.Floor][:]) || !requestsAbove(e) || e.Floor == 0 || e.Floor == len(e.requests)-1
+	case models.Down:
+		return any(e.requests[e.Floor][:]) || !requestsBelow(e) || e.Floor == 0 || e.Floor == len(e.requests)-1
+	case models.Stop:
 		return true
 	}
 	return false
 }
 
-func chooseDirection(e elevatorfsm.Elevator) elevatorio.MotorDirection {
+func chooseDirection(e localElevator) models.MotorDirection {
 	switch e.Direction {
-	case elevatorio.MD_Up:
+	case models.Up:
 		if requestsAbove(e) {
-			return elevatorio.MD_Up
+			return models.Up
 		} else if anyRequestsAtFloor(e) {
-			return elevatorio.MD_Stop
+			return models.Stop
 		} else if requestsBelow(e) {
-			return elevatorio.MD_Down
+			return models.Down
 		} else {
-			return elevatorio.MD_Stop
+			return models.Stop
 		}
-	case elevatorio.MD_Down, elevatorio.MD_Stop:
+	case models.Down, models.Stop:
 		if requestsBelow(e) {
-			return elevatorio.MD_Down
+			return models.Down
 		} else if anyRequestsAtFloor(e) {
-			return elevatorio.MD_Stop
+			return models.Stop
 		} else if requestsAbove(e) {
-			return elevatorio.MD_Up
+			return models.Up
 		} else {
-			return elevatorio.MD_Stop
+			return models.Stop
 		}
 	}
-	return elevatorio.MD_Stop
+	return models.Stop
 }
 
-func clearReqsAtFloor(e elevatorfsm.Elevator, onClearedRequest func(elevatorio.ButtonType)) elevatorfsm.Elevator {
+func clearReqsAtFloor(e localElevator, onClearedRequest func(models.ButtonType)) localElevator {
 	e2 := e
 
-	clear := func(c elevatorio.ButtonType) {
-		if e2.Requests[e2.Floor][c] {
+	clear := func() {
+		if slices.Contains(e2.requests[e2.Floor][:], true) {
 			if onClearedRequest != nil {
-				onClearedRequest(c)
+				onClearedRequest(models.Cab)
 			}
-			e2.Requests[e2.Floor][c] = false
+			e2.requests[e2.Floor] = [3]bool{false, false, false}
 		}
 	}
 
@@ -107,29 +96,9 @@ func clearReqsAtFloor(e elevatorfsm.Elevator, onClearedRequest func(elevatorio.B
 
 	switch clearRequestType {
 	case "all":
-		for c := range e2.Requests[0] {
-			clear(elevatorio.ButtonType(c))
-		}
+		clear()
 	case "inDirn":
-		clear(elevatorio.BT_Cab)
-
-		switch e.Direction {
-		case elevatorio.MD_Up:
-			if e2.Requests[e2.Floor][elevatorio.BT_HallUp] {
-				clear(elevatorio.BT_HallUp)
-			} else if !requestsAbove(e2) {
-				clear(elevatorio.BT_HallDown)
-			}
-		case elevatorio.MD_Down:
-			if e2.Requests[e2.Floor][elevatorio.BT_HallDown] {
-				clear(elevatorio.BT_HallDown)
-			} else if !requestsBelow(e2) {
-				clear(elevatorio.BT_HallUp)
-			}
-		case elevatorio.MD_Stop:
-			clear(elevatorio.BT_HallUp)
-			clear(elevatorio.BT_HallDown)
-		}
+		clear()
 	}
 
 	return e2

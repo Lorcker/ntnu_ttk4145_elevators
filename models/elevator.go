@@ -1,7 +1,7 @@
 package models
 
 type ElevatorState struct {
-	Id        uint8
+	Id        Id
 	Floor     int
 	Behavior  ElevatorBehavior
 	Direction MotorDirection
