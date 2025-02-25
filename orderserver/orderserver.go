@@ -6,7 +6,7 @@ import (
 
 func RunOrderServer(
 	validatedRequests <-chan models.Request,
-	state <-chan models.Elevator,
-	alive <-chan []uint8,
+	state <-chan models.ElevatorState,
+	alive <-chan []models.Id,
 	orders chan<- models.Orders) {
 }

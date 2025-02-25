@@ -5,9 +5,9 @@ import (
 )
 
 func Starter(pollObstructionSwitch chan<- bool,
-	pollFloorSensor <-chan bool,
+	pollFloorSensor <-chan int,
 	pollOrders <-chan models.Orders,
-	resolvedRequests []chan<- models.Request,
+	resolvedRequests chan<- models.Request,
 	receiver []chan<- models.ElevatorState) {
 	for {
 		switch {

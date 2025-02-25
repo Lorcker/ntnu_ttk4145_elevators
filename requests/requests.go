@@ -7,16 +7,16 @@ import (
 func RunRequestServer(
 	incomingRequests <-chan m.RequestMessage,
 	peerStatus <-chan []m.Id,
-	subscribers []chan<- map[m.Origin]m.Request) {
+	subscribers []chan<- m.Request) {
 
 	var requestManager = newRequestManager()
 
 	for {
 		select {
 		case msg := <-incomingRequests:
-			requestManager.process(msg)
+			r := requestManager.process(msg)
 			for _, s := range subscribers {
-				s <- requestManager.store
+				s <- r
 			}
 		case alivePeers := <-peerStatus:
 			requestManager.alivePeers = alivePeers
@@ -38,50 +38,46 @@ func newRequestManager() *requestManager {
 	}
 }
 
-func (rm *requestManager) process(msg m.RequestMessage) {
-	_, ok := rm.store[msg.Request.Origin]
-	if !ok {
+func (rm *requestManager) process(msg m.RequestMessage) m.Request {
+	if _, ok := rm.store[msg.Request.Origin]; !ok {
 		rm.store[msg.Request.Origin] = msg.Request
-		return
+		return msg.Request
 	}
 
 	switch msg.Request.Status {
 	case m.Absent:
-		rm.processAbsent(msg)
+		return rm.processAbsent(msg)
 	case m.Unconfirmed:
-		rm.processUnconfirmed(msg)
+		return rm.processUnconfirmed(msg)
 	case m.Confirmed:
-		rm.processConfirmed(msg)
-	case m.Unknown:
-		break
+		return rm.processConfirmed(msg)
+	default:
+		return msg.Request
 	}
 }
 
-func (rm *requestManager) processAbsent(msg m.RequestMessage) {
+func (rm *requestManager) processAbsent(msg m.RequestMessage) m.Request {
 	if msg.Request.Status != m.Absent {
-		return
+		return msg.Request
 	}
 
 	storedRequest := rm.store[msg.Request.Origin]
-	switch storedRequest.Status {
-	case m.Confirmed:
-		fallthrough
-	case m.Unknown:
+	if storedRequest.Status == m.Confirmed || storedRequest.Status == m.Unknown {
 		storedRequest.Status = m.Absent
-	case m.Absent:
-	case m.Unconfirmed:
 	}
 
 	rm.store[msg.Request.Origin] = storedRequest
+	return storedRequest
 }
 
-func (rm *requestManager) processUnconfirmed(msg m.RequestMessage) {
+func (rm *requestManager) processUnconfirmed(msg m.RequestMessage) m.Request {
 	if msg.Request.Status != m.Unconfirmed {
-		return
+		return msg.Request
 	}
 
 	ledgers := rm.ledgers[msg.Request.Origin]
 	storedRequest := rm.store[msg.Request.Origin]
+
 	switch storedRequest.Status {
 	case m.Unknown:
 		fallthrough
@@ -97,43 +93,21 @@ func (rm *requestManager) processUnconfirmed(msg m.RequestMessage) {
 		} else {
 			storedRequest.Status = m.Unconfirmed
 		}
-	case m.Confirmed:
 	}
 
 	rm.ledgers[msg.Request.Origin] = ledgers
 	rm.store[msg.Request.Origin] = storedRequest
+	return storedRequest
 }
 
-func (rm *requestManager) processConfirmed(msg m.RequestMessage) {
+func (rm *requestManager) processConfirmed(msg m.RequestMessage) m.Request {
 	if msg.Request.Status != m.Confirmed {
-		return
+		return msg.Request
 	}
 
 	storedRequest := rm.store[msg.Request.Origin]
 	storedRequest.Status = m.Confirmed
 
 	rm.store[msg.Request.Origin] = storedRequest
-}
-
-func isSetEqual(a, b []m.Id) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for _, id := range a {
-		if !contains(b, id) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func contains(s []m.Id, e m.Id) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
+	return storedRequest
 }
