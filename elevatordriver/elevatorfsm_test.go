@@ -39,11 +39,7 @@ func printElevatorState(elevator models.ElevatorState) {
 	fmt.Printf("Direction: %d\n\n", elevator.Direction)
 }
 
-func printWhenDisconnect() {
-	fmt.Printf("Disconnected")
-}
-
-func initTestElevator() {
+func onInitBetweenFloors() {
 	if elevatorio.GetFloor() != 0 {
 		elevatorio.SetMotorDirection(-1)
 	}
@@ -52,20 +48,19 @@ func initTestElevator() {
 	elevatorio.SetMotorDirection(0)
 }
 
-func TestHandleOrderEvent(t *testing.T) {
-	// Init orders for test
-
-	defer printWhenDisconnect()
-	var orders models.Orders = initOrders(4)
-
-	// // Initialize the network test system
+func initTestElevator(nFloors int) models.Orders {
 	elevatorio.Init("localhost:15680", 4)
-	elevatorio.SetMotorDirection(0)
+	onInitBetweenFloors()
+	orders := initOrders(nFloors)
 	setAllElevatorLights(orders)
-	// elevatorio.SetMotorDirection(1)
 
-	// Init elevator object
-	initTestElevator()
+	return orders
+
+}
+
+func TestMain(t *testing.T) {
+	var orders models.Orders = initTestElevator(4)
+
 	elevator := models.ElevatorState{Id: 10, Floor: 0, Behavior: models.Idle, Direction: models.MotorDirection(0)}
 
 	// Create a channel to receive the request messages
@@ -87,14 +82,14 @@ func TestHandleOrderEvent(t *testing.T) {
 	// Loop and print received request messages from the channel
 	timer := time.NewTimer(3 * time.Second)
 	timer.Stop()
+	isObstructed := false
 
 	for {
 		select {
 		case order_request := <-receiverOrder:
-			// Print received request message
-			// fmt.Printf("Received request: %+v\n", req)
 			orders[order_request.Request.Origin.Floor][order_request.Request.Origin.ButtonType] = true
 			printOrders(orders)
+			setAllElevatorLights(orders)
 			HandleOrderEvent(&elevator, orders, recieverDoorTimer)
 
 		case <-recieverDoorTimer:
@@ -102,25 +97,26 @@ func TestHandleOrderEvent(t *testing.T) {
 			timer.Reset(3 * time.Second)
 
 		case <-recieverObstructionSwitch:
-			if elevator.Behavior == models.DoorOpen {
+			isObstructed = !isObstructed
+
+		case <-timer.C:
+			if elevator.Behavior == models.DoorOpen && !isObstructed {
+				HandleDoorTimerEvent(&elevator, orders, recieverDoorTimer)
+			} else {
+				fmt.Printf("Remove Obstruction!\n")
 				timer.Reset(3 * time.Second)
 			}
-		case <-timer.C:
-			HandleDoorTimerEvent(&elevator, orders, recieverDoorTimer)
 
 		case floor_sensor := <-recieverFloorSensor:
 			HandleFloorsensorEvent(&elevator, orders, floor_sensor, recieverDoorTimer)
 			printElevatorState(elevator)
 
-		case <-recieverObstructionSwitch:
-			_ = 1
-
 		case <-recieverStopButton:
-			_ = 1
+			EmergencyStop(&elevator) // So far does nothing
 
 		case <-timeout:
 			// Timeout to stop the test if nothing happens
-			fmt.Println("No msg last 10 sec")
+			// fmt.Println("No msg last 10 sec")
 			timeout = time.After(10 * time.Second)
 		}
 	}

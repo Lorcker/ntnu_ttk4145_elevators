@@ -50,7 +50,7 @@ func HandleFloorsensorEvent(elevator *models.ElevatorState, orders models.Orders
 		if RequestShouldStop(*elevator, orders) {
 			elevatorio.SetMotorDirection((0))
 			elevatorio.SetDoorOpenLamp(true)
-			RequestClearAtCurrentFloor(*elevator, &orders)
+			// RequestClearAtCurrentFloor(*elevator, &orders)
 			setAllElevatorLights(orders)
 			recieverDoorTimer <- true
 		}
@@ -64,9 +64,8 @@ func HandleRequestButtonEvent(elevator models.ElevatorState, button models.Butto
 
 }
 
-// When timer is done, close the door, and set in Idle/Moving.
+// When timer is done, close the door, and go in desired direction.
 func HandleDoorTimerEvent(elevator *models.ElevatorState, orders models.Orders, recieverDoorTimer chan<- bool) {
-	//fmt.Printf("Dette fungerer!")
 	switch elevator.Behavior {
 	case models.DoorOpen:
 		RequestChooseDirection(elevator, orders, recieverDoorTimer)
@@ -80,6 +79,7 @@ func HandleDoorTimerEvent(elevator *models.ElevatorState, orders models.Orders, 
 
 		case models.Moving, models.Idle:
 			elevatorio.SetDoorOpenLamp(false)
+			setAllElevatorLights(orders)
 			elevatorio.SetMotorDirection(elevator.Direction)
 			break
 		}
@@ -88,13 +88,16 @@ func HandleDoorTimerEvent(elevator *models.ElevatorState, orders models.Orders, 
 	default:
 		break
 	}
-	// Remember to check for obstruction
 }
 
 func OpenDoor(elevator *models.ElevatorState) {
 	fmt.Printf("Door open\n")
 	elevatorio.SetDoorOpenLamp(true)
 	elevator.Behavior = models.DoorOpen
+}
+
+func EmergencyStop(elevator *models.ElevatorState) {
+	fmt.Printf("Stop button not implemented :(\n")
 }
 
 // Little bit inspired by the given C-code :)
@@ -187,7 +190,6 @@ func RequestBelow(e models.ElevatorState, orders models.Orders) bool {
 
 }
 
-// Skriv ferdig denne?
 func RequestClearAtCurrentFloor(e models.ElevatorState, orders *models.Orders) {
 	clearRequestVariant := true //Definisjon. True: Alle ordre skal fjernes fra etasjen (alle går på). False: Bare de i samme retning.
 	if clearRequestVariant {
