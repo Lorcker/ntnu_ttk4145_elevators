@@ -38,27 +38,22 @@ func newRequestManager() *requestManager {
 	}
 }
 
-// process processes a request message and updates the request manager's state
-// It returns the state of the request after processing
 func (rm *requestManager) process(msg m.RequestMessage) m.Request {
-	req := msg.Request
-
-	_, ok := rm.store[msg.Request.Origin]
-	if !ok {
-		rm.store[msg.Request.Origin] = req
-		return req
+	if _, ok := rm.store[msg.Request.Origin]; !ok {
+		rm.store[msg.Request.Origin] = msg.Request
+		return msg.Request
 	}
 
 	switch msg.Request.Status {
 	case m.Absent:
-		req = rm.processAbsent(msg)
+		return rm.processAbsent(msg)
 	case m.Unconfirmed:
-		req = rm.processUnconfirmed(msg)
+		return rm.processUnconfirmed(msg)
 	case m.Confirmed:
-		req = rm.processConfirmed(msg)
+		return rm.processConfirmed(msg)
+	default:
+		return msg.Request
 	}
-
-	return req
 }
 
 func (rm *requestManager) processAbsent(msg m.RequestMessage) m.Request {
@@ -67,13 +62,8 @@ func (rm *requestManager) processAbsent(msg m.RequestMessage) m.Request {
 	}
 
 	storedRequest := rm.store[msg.Request.Origin]
-	switch storedRequest.Status {
-	case m.Confirmed:
-		fallthrough
-	case m.Unknown:
+	if storedRequest.Status == m.Confirmed || storedRequest.Status == m.Unknown {
 		storedRequest.Status = m.Absent
-	case m.Absent:
-	case m.Unconfirmed:
 	}
 
 	rm.store[msg.Request.Origin] = storedRequest
@@ -87,6 +77,7 @@ func (rm *requestManager) processUnconfirmed(msg m.RequestMessage) m.Request {
 
 	ledgers := rm.ledgers[msg.Request.Origin]
 	storedRequest := rm.store[msg.Request.Origin]
+
 	switch storedRequest.Status {
 	case m.Unknown:
 		fallthrough
@@ -102,7 +93,6 @@ func (rm *requestManager) processUnconfirmed(msg m.RequestMessage) m.Request {
 		} else {
 			storedRequest.Status = m.Unconfirmed
 		}
-	case m.Confirmed:
 	}
 
 	rm.ledgers[msg.Request.Origin] = ledgers
@@ -120,27 +110,4 @@ func (rm *requestManager) processConfirmed(msg m.RequestMessage) m.Request {
 
 	rm.store[msg.Request.Origin] = storedRequest
 	return storedRequest
-}
-
-func isSetEqual(a, b []m.Id) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for _, id := range a {
-		if !contains(b, id) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func contains(s []m.Id, e m.Id) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
 }
