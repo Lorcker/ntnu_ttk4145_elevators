@@ -1,3 +1,3 @@
 module group48.ttk4145.ntnu/elevators
 
-go 1.23.5
+go 1.22.12

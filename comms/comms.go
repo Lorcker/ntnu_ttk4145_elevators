@@ -23,7 +23,7 @@ func RunComms(
 	localElevatorUpdates <-chan models.ElevatorState,
 	internalValidatedRequests <-chan models.Request,
 	outgoingEStatesUpdates chan<- models.ElevatorState,
-	outgoingUnvalidatedRequests chan<- models.Request,
+	outgoingUnvalidatedRequests chan<- models.RequestMessage,
 	healthMonitorPing chan<- models.Id) {
 	var validatedRequestsBuffer = make(map[models.Origin]models.Request)
 	var internalEState models.ElevatorState
@@ -50,7 +50,7 @@ func RunComms(
 			healthMonitorPing <- msg.Source
 			outgoingEStatesUpdates <- msg.EState
 			for _, r := range msg.Requests {
-				outgoingUnvalidatedRequests <- r
+				outgoingUnvalidatedRequests <- models.RequestMessage{Source: msg.Source, Request: r}
 			}
 		}
 	}
