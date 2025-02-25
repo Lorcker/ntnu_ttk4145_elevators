@@ -4,6 +4,11 @@ import (
 	"group48.ttk4145.ntnu/elevators/models"
 )
 
+type elevator struct {
+	cabRequests []bool
+	state       models.ElevatorState
+}
+
 func RunOrderServer(
 	validatedRequests <-chan models.Request,
 	state <-chan models.ElevatorState,
@@ -13,38 +18,46 @@ func RunOrderServer(
 	//init vars
 	numFloors := 4
 	hallRequests := make([][2]bool, numFloors)
-	cabRequests := make([]bool, numFloors)
-	elevatorStates := []models.ElevatorState{}
+	elevators := []elevator{}
 
 	select {
 	case r := <-validatedRequests:
 		if r.Status == models.Confirmed {
 			// add the request to the orders channel
-			if (r.Origin.Source == models.Hall{}) {
-				hallRequests[r.Origin.Floor][r.Origin.ButtonType] = true
-			} else {
-				cabRequests[r.Origin.Floor] = true
+			for _, elevator := range elevators {
+				if source, ok := r.Origin.Source.(models.Elevator); ok && uint8(source.Id) == elevator.state.Id {
+					elevator.cabRequests[r.Origin.Floor] = true
+				} else if _, ok := r.Origin.Source.(models.Hall); ok {
+					hallRequests[r.Origin.Floor][r.Origin.ButtonType] = true
+				} else {
+					panic("Invalid request source")
+				}
 			}
 		}
 	case a := <-alive:
-		for _, elevator := range a {
+		for _, id := range a {
 			found := false
-			for _, state := range elevatorStates {
-				if state.Id == elevator {
+			for _, elevator := range elevators {
+				if elevator.state.Id == id {
 					found = true
 					break
 				}
 			}
 			if !found {
-				elevatorStates = append(elevatorStates, models.ElevatorState{Id: elevator})
+				elevators = append(elevators, elevator{
+					cabRequests: make([]bool, numFloors),
+					state: models.ElevatorState{
+						Id: id,
+					},
+				})
 			}
 		}
 	case s := <-state:
 		exists := false
-		for index, elevState := range elevatorStates {
-			if s.Id == elevState.Id {
+		for index, elevState := range elevators {
+			if s.Id == elevState.state.Id {
 				exists = true
-				elevatorStates[index] = s
+				elevators[index].state = s
 				break
 			}
 		}
@@ -52,21 +65,21 @@ func RunOrderServer(
 			panic("State Alive")
 		}
 
-		if len(elevatorStates) == 0 {
+		if len(elevators) == 0 {
 			panic("No elevator states provided")
 		}
-		for _, state := range elevatorStates {
-			if len(cabRequests) != numFloors {
+		for _, state := range elevators {
+			if len(state.cabRequests) != numFloors {
 				panic("Hall and cab requests do not all have the same length")
 			}
 		}
 
 		isInBounds := func(f int) bool { return f >= 0 && f < numFloors }
-		for _, state := range elevatorStates {
-			if !isInBounds(state.Floor) {
+		for _, state := range elevators {
+			if !isInBounds(state.state.Floor) {
 				panic("Some elevator is at an invalid floor")
 			}
-			if state.Behavior == models.Moving && !isInBounds(state.Floor+int(state.Direction)) {
+			if state.state.Behavior == models.Moving && !isInBounds(state.state.Floor+int(state.state.Direction)) {
 				panic("Some elevator is moving away from an end floor")
 			}
 		}

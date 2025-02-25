@@ -1,11 +1,8 @@
-package elevatorAlgorithm
+package orderserver
 
-import (
-	"group48.ttk4145.ntnu/elevators/elevatorfsm"
-	"group48.ttk4145.ntnu/elevators/elevatorio"
-)
+import "group48.ttk4145.ntnu/elevators/models"
 
-func requestsAbove(e elevatorfsm.Elevator) bool {
+func requestsAbove(e models.ElevatorState) bool {
 	for i := e.Floor + 1; i < len(e.Requests); i++ {
 		for _, req := range e.Requests[i] {
 			if req {
@@ -16,7 +13,7 @@ func requestsAbove(e elevatorfsm.Elevator) bool {
 	return false
 }
 
-func requestsBelow(e elevatorfsm.Elevator) bool {
+func requestsBelow(e models.ElevatorState) bool {
 	for i := 0; i < e.Floor; i++ {
 		for _, req := range e.Requests[i] {
 			if req {
