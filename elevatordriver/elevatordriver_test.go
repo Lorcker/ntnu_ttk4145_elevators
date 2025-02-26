@@ -14,7 +14,7 @@ func TestStarter(t *testing.T) {
 	pollObstructionSwitch := make(chan bool)
 	pollFloorSensor := make(chan int)
 	pollOrders := make(chan models.Orders)
-	resolvedRequests := make([]chan<- models.Request, 0)
+	resolvedRequests := make(chan models.Request, 0)
 	receiver := make([]chan<- models.ElevatorState, 0)
 	id := models.Id(3)
 
@@ -22,6 +22,7 @@ func TestStarter(t *testing.T) {
 	receiverRequest := make(chan models.RequestMessage)
 
 	go testPollOrders(pollOrders, receiverRequest)
+	go testPollResolvedRequest(resolvedRequests)
 	go elevatorio.PollRequests(receiverRequest)
 	go elevatorio.PollFloorSensor(pollFloorSensor)
 	go elevatorio.PollObstructionSwitch(pollObstructionSwitch)
@@ -41,5 +42,10 @@ func testPollOrders(reciever chan<- models.Orders, receiverRequest chan models.R
 		}
 
 	}
+}
 
+func testPollResolvedRequest(reciever <-chan models.Request) {
+	for {
+		log.Printf("ResolvedRequest: %v", <-reciever)
+	}
 }
