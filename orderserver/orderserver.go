@@ -54,13 +54,12 @@ func RunOrderServer(
 					for _, elevator := range elevators.states {
 						if models.Id(elevator.Id) == r.Origin.Source.(models.Elevator).Id {
 							elevator.cabRequests[r.Origin.Floor] = true
-							break
 						}
 					}
 				}
 				// calculates the optimal orders for the elevators
 
-				orders <- optimalHallRequests(elevators)
+				orders <- optimalHallRequests(elevators)[1]
 			}
 		// handle the alive channel
 		case a := <-alive:
