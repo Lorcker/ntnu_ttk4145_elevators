@@ -7,10 +7,24 @@ import (
 	"group48.ttk4145.ntnu/elevators/models"
 )
 
-var NButtons int = 3
-var NFloors int = 4
+func onInitBetweenFloors() {
+	if elevatorio.GetFloor() != 0 {
+		elevatorio.SetMotorDirection(-1)
+	}
+	for elevatorio.GetFloor() != 0 {
+	}
+	elevatorio.SetMotorDirection(0)
+}
+
+func initElevator(orders models.Orders) {
+	elevatorio.Init("localhost:15680", 4)
+	onInitBetweenFloors()
+	setAllElevatorLights(orders)
+
+}
 
 func HandleOrderEvent(elevator *models.ElevatorState, orders models.Orders, recieverDoorTimer chan<- bool) {
+	setAllElevatorLights(orders)
 	switch elevator.Behavior {
 	case models.Idle:
 		RequestChooseDirection(elevator, orders, recieverDoorTimer) // Updates the elevator states if new orders are in
@@ -29,7 +43,6 @@ func HandleOrderEvent(elevator *models.ElevatorState, orders models.Orders, reci
 		}
 
 	case models.DoorOpen:
-		//NB RequestShouldClearImmediatly not implementd!!//
 		if RequestShouldClearImmediatly(*elevator, orders) {
 			recieverDoorTimer <- true
 			RequestClearAtCurrentFloor(*elevator, &orders)
@@ -50,7 +63,7 @@ func HandleFloorsensorEvent(elevator *models.ElevatorState, orders models.Orders
 		if RequestShouldStop(*elevator, orders) {
 			elevatorio.SetMotorDirection((0))
 			elevatorio.SetDoorOpenLamp(true)
-			// RequestClearAtCurrentFloor(*elevator, &orders)
+			RequestClearAtCurrentFloor(*elevator, &orders)
 			setAllElevatorLights(orders)
 			recieverDoorTimer <- true
 		}
@@ -298,4 +311,35 @@ func setAllElevatorLights(orders models.Orders) {
 			}
 		}
 	}
+}
+
+// Debug functions.
+func printOrders(orders models.Orders) {
+	// Iterate through the outer slice (rows)
+	fmt.Printf("Floor\t Up\t Down\t Cab\n")
+	for i := 0; i < len(orders); i++ {
+		// Iterate through the inner slice (columns) at each row
+		fmt.Printf("%d\t", i)
+		for j := 0; j < len(orders[i]); j++ {
+			// Print the Order information
+			fmt.Printf("%t\t ", orders[i][j])
+		}
+		fmt.Printf("\n\n")
+	}
+}
+
+func printElevatorState(elevator models.ElevatorState) {
+	fmt.Printf("\n\nFloor: %d\n", elevator.Floor)
+	fmt.Printf("Behavior: %d\n", elevator.Behavior)
+	fmt.Printf("Direction: %d\n\n", elevator.Direction)
+}
+
+func initOrders(numFloors int) models.Orders {
+	var orders models.Orders = make([][3]bool, numFloors)
+	for i := 0; i < numFloors; i++ {
+		for j := 0; j < 3; j++ {
+			orders[i][j] = false
+		}
+	}
+	return orders
 }

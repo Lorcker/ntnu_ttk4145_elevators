@@ -9,45 +9,6 @@ import (
 	"group48.ttk4145.ntnu/elevators/models"     // Assuming your models are here
 )
 
-func initOrders(numFloors int) models.Orders {
-	var orders models.Orders = make([][3]bool, numFloors)
-	for i := 0; i < numFloors; i++ {
-		for j := 0; j < 3; j++ {
-			orders[i][j] = false
-		}
-	}
-	return orders
-}
-
-func printOrders(orders models.Orders) {
-	// Iterate through the outer slice (rows)
-	fmt.Printf("Floor\t Up\t Down\t Cab\n")
-	for i := 0; i < len(orders); i++ {
-		// Iterate through the inner slice (columns) at each row
-		fmt.Printf("%d\t", i)
-		for j := 0; j < len(orders[i]); j++ {
-			// Print the Order information
-			fmt.Printf("%t\t ", orders[i][j])
-		}
-		fmt.Printf("\n\n")
-	}
-}
-
-func printElevatorState(elevator models.ElevatorState) {
-	fmt.Printf("\n\nFloor: %d\n", elevator.Floor)
-	fmt.Printf("Behavior: %d\n", elevator.Behavior)
-	fmt.Printf("Direction: %d\n\n", elevator.Direction)
-}
-
-func onInitBetweenFloors() {
-	if elevatorio.GetFloor() != 0 {
-		elevatorio.SetMotorDirection(-1)
-	}
-	for elevatorio.GetFloor() != 0 {
-	}
-	elevatorio.SetMotorDirection(0)
-}
-
 func initTestElevator(nFloors int) models.Orders {
 	elevatorio.Init("localhost:15680", 4)
 	onInitBetweenFloors()
