@@ -44,7 +44,8 @@ func main() {
 		floorSensorUpdates,
 		orders,
 		resolvedRequests,
-		internalElevatorState)
+		internalElevatorState,
+		models.Id(config.LocalPeerId))
 
 	// Order module initialization
 	var aliveStatus = make(chan []models.Id)
