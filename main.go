@@ -45,7 +45,7 @@ func main() {
 		orders,
 		resolvedRequests,
 		internalElevatorState,
-    model.Id(config.LocalPeerId))
+		models.Id(config.LocalPeerId))
 
 	// Order module initialization
 	var aliveStatus = make(chan []models.Id)
