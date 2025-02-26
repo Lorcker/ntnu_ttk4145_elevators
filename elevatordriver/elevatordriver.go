@@ -31,7 +31,6 @@ func Starter(pollObstructionSwitch <-chan bool,
 	timerSendElevatorState := time.NewTimer(time.Duration(sendElevatorStateDuration) * time.Second)
 	isObstructed := false
 
-	// Loop and print received request messages from the channel
 	for {
 		select {
 		case orders = <-pollOrders:
