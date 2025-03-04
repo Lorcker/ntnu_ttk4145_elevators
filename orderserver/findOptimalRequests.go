@@ -1,9 +1,8 @@
 package orderserver
 
 import (
-	"time"
-
 	"sort"
+	"time"
 
 	"group48.ttk4145.ntnu/elevators/models"
 )
@@ -33,7 +32,6 @@ func optimalHallRequests(elevators elevators) map[models.Id]models.Orders {
 		})
 		done := true
 		if anyUnassigned(reqs) {
-			assignImmediate(&reqs, &states)
 			done = false
 		}
 		if unvisitedAreImmediatelyAssignable(reqs, states) {
@@ -58,7 +56,6 @@ func optimalHallRequests(elevators elevators) map[models.Id]models.Orders {
 	}
 
 	return results
-
 }
 
 func addRequests(e elevators) [][2]Reqest {
@@ -81,6 +78,7 @@ func addRequests(e elevators) [][2]Reqest {
 	}
 	return reqs
 }
+
 func initialStates(e elevators) []State {
 	states := make([]State, len(e.states))
 	for i, elevator := range e.states {
@@ -92,29 +90,28 @@ func initialStates(e elevators) []State {
 	}
 	return states
 }
+
 func performInitialMove(s *State, req *[][2]Reqest) {
 	switch s.Behavior {
 	case models.DoorOpen: // if the elevator is at a floor with the door open, wait for it to close
 		s.time = s.time.Add(doorOpenDuration / 2)
 		s.Behavior = models.Idle
 		fallthrough
-	case models.Idle: // if the elevator is idle, move to the first floor with a request
+	case models.Idle: // if the elevator is idle, check if there are any requests at the current floor
 		for c := range 2 {
 			if (*req)[s.Floor][c].active {
 				(*req)[s.Floor][c].assignedTo = s.Id
 				s.time = s.time.Add(doorOpenDuration)
 			}
 		}
-		break
 	case models.Moving:
 		s.Floor += int(s.Direction)
 		s.time = s.time.Add(travelDuration / 2)
-		break
 	}
 }
 
 func performSingleMove(s *State, req *[][2]Reqest) {
-
+	//add a elevator with all the unassisgned requests
 	e := anyUnassignedElevator(s, req)
 
 	onClearRequest := func(c models.ButtonType) {
@@ -136,7 +133,6 @@ func performSingleMove(s *State, req *[][2]Reqest) {
 			s.Floor += int(s.Direction)
 			s.time = s.time.Add(travelDuration)
 		}
-		break
 	case models.Idle, models.DoorOpen:
 		s.Direction = chooseDirection(e)
 		if s.Direction == models.Stop {
@@ -152,10 +148,9 @@ func performSingleMove(s *State, req *[][2]Reqest) {
 			s.time = s.time.Add(travelDuration)
 			s.Floor += int(s.Direction)
 		}
-		break
-
 	}
 }
+
 func anyUnassignedElevator(s *State, req *[][2]Reqest) localElevator {
 	e := localElevator{
 		ElevatorState: s.ElevatorState,
@@ -178,7 +173,6 @@ func anyUnassignedElevator(s *State, req *[][2]Reqest) localElevator {
 	return e
 }
 
-// no remaining cab requests, no floors with multiple hall requests, and all *unvisited* hall requests are at floors with elevators
 func unvisitedAreImmediatelyAssignable(reqs [][2]Reqest, states []State) bool {
 	for _, state := range states {
 		if any(state.CabRequests) {
@@ -212,6 +206,7 @@ func unvisitedAreImmediatelyAssignable(reqs [][2]Reqest, states []State) bool {
 	}
 	return true
 }
+
 func assignImmediate(reqs *[][2]Reqest, states *[]State) {
 	for f, reqsAtFloor := range *reqs {
 		for c, req := range reqsAtFloor {
@@ -227,6 +222,7 @@ func assignImmediate(reqs *[][2]Reqest, states *[]State) {
 		}
 	}
 }
+
 func any(arr []bool) bool {
 	for _, req := range arr {
 		if req {
@@ -236,7 +232,6 @@ func any(arr []bool) bool {
 	return false
 }
 
-// helper function to check if any element in a slice of Reqest is unassigned
 func anyUnassigned(reqs [][2]Reqest) bool {
 	for _, floorReqs := range reqs {
 		for _, req := range floorReqs {

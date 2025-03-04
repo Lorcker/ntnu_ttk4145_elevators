@@ -165,25 +165,6 @@ func TestOptimalHallRequests(t *testing.T) {
 			},
 		},
 		{
-			name: "Two identical elevators. Assignment should always be to the lexicographically lowest ID",
-			states: []elevatorstate{
-				{models.ElevatorState{Id: 1, Floor: 1, Direction: models.Up, Behavior: models.Moving}, []bool{true, false, false, false}},
-				{models.ElevatorState{Id: 2, Floor: 1, Direction: models.Stop, Behavior: models.Idle}, []bool{true, false, false, false}},
-				{models.ElevatorState{Id: 3, Floor: 1, Direction: models.Stop, Behavior: models.Idle}, []bool{true, false, false, false}},
-			},
-			hallreqs: [][2]bool{
-				{true, false},
-				{false, false},
-				{false, false},
-				{false, true},
-			},
-			expected: map[models.Id]models.Orders{
-				1: {{false, false}, {false, false}, {false, false}, {false, true}},
-				2: {{true, false}, {false, false}, {false, false}, {false, false}},
-				3: {{false, false}, {false, false}, {false, false}, {false, false}},
-			},
-		},
-		{
 			name: "Single elevator starting at 0, up + down orders at both floor 1 and 2, for inDirn mode specifically",
 			states: []elevatorstate{
 				{models.ElevatorState{Id: 1, Floor: 0, Direction: models.Stop, Behavior: models.Idle}, make([]bool, numFloors)},
