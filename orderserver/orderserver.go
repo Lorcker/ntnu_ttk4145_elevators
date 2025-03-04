@@ -2,6 +2,7 @@ package orderserver
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"group48.ttk4145.ntnu/elevators/models"
@@ -59,8 +60,9 @@ func RunOrderServer(
 					}
 				}
 				// calculates the optimal orders for the elevators
-				fmt.Println("Calculating optimal orders: ", elevators.requests)
-				orders <- optimalHallRequests(elevators)[localPeerId]
+				order := optimalHallRequests(elevators)[localPeerId]
+				log.Printf("Sending order to channel: %v", order)
+				orders <- order
 			}
 		// handle the alive channel
 		case a := <-alive:
