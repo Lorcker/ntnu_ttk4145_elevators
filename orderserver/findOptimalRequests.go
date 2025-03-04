@@ -53,8 +53,12 @@ func optimalHallRequests(elevators elevators) map[models.Id]models.Orders {
 				}
 			}
 		}
+		for i, cabRequest := range state.CabRequests {
+			if cabRequest {
+				results[models.Id(state.Id)][i][models.Cab] = true
+			}
+		}
 	}
-
 	return results
 }
 

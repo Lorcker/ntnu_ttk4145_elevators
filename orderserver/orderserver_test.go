@@ -16,7 +16,7 @@ func TestCalculateOrders(t *testing.T) {
 	orders := make(chan models.Orders, 1)
 	state := make(chan models.ElevatorState, 1)
 
-	go RunOrderServer(validatedRequests, state, alive, orders)
+	go RunOrderServer(validatedRequests, state, alive, orders, 1)
 
 	// Send test data to the channels
 	alive <- []models.Id{1, 2}
@@ -43,10 +43,8 @@ func TestCalculateOrders(t *testing.T) {
 	}
 
 	// Check the output from the orders channel
-	select {
-	case o := <-orders:
-		fmt.Println("Orders received:", o)
-	}
+	o := <-orders
+	fmt.Println("Orders received:", o)
 
 	fmt.Println("TestCalculateOrders done")
 }

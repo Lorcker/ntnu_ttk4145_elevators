@@ -21,7 +21,7 @@ func Starter(pollObstructionSwitch <-chan bool,
 	id models.Id) {
 
 	// Init elevator, obstruction and timer
-	elevator := models.ElevatorState{Id: (uint8(id)), Floor: 0, Behavior: models.Idle, Direction: models.MotorDirection(0)}
+	elevator := models.ElevatorState{Id: id, Floor: 0, Behavior: models.Idle, Direction: models.MotorDirection(0)}
 	orders := initOrders(NFloors)
 	initElevator(orders)
 

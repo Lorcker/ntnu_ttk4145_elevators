@@ -34,7 +34,8 @@ func RunOrderServer(
 	validatedRequests <-chan models.Request,
 	state <-chan models.ElevatorState,
 	alive <-chan []models.Id,
-	orders chan<- models.Orders) {
+	orders chan<- models.Orders,
+	localPeerId models.Id) {
 
 	//init local vars
 	elevators := elevators{}
@@ -58,8 +59,8 @@ func RunOrderServer(
 					}
 				}
 				// calculates the optimal orders for the elevators
-
-				orders <- optimalHallRequests(elevators)[1]
+				fmt.Println("Calculating optimal orders: ", elevators.requests)
+				orders <- optimalHallRequests(elevators)[localPeerId]
 			}
 		// handle the alive channel
 		case a := <-alive:
@@ -82,15 +83,12 @@ func RunOrderServer(
 				}
 			}
 		case s := <-state:
-			fmt.Println("State received", s)
 			// update the state of the elevator
-			print("ElevatorSates", elevators.states)
 			for index, elevState := range elevators.states {
 				if s.Id == elevState.Id {
 					elevators.states[index] = elevatorstate{
 						ElevatorState: s,
 					}
-					fmt.Println("Elevator state updated", s)
 					break
 				} else {
 					fmt.Println("Elevator not found")

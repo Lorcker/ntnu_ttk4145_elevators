@@ -1,8 +1,6 @@
 package orderserver
 
 import (
-	"slices"
-
 	"group48.ttk4145.ntnu/elevators/models"
 )
 
@@ -18,15 +16,6 @@ func requestsAbove(e localElevator) bool {
 func requestsBelow(e localElevator) bool {
 	for _, floorRequests := range e.requests[:e.Floor] {
 		if any(floorRequests[:]) {
-			return true
-		}
-	}
-	return false
-}
-
-func anyRequests(e localElevator) bool {
-	for _, floorRequests := range e.requests {
-		if slices.Contains(floorRequests[:], true) {
 			return true
 		}
 	}
