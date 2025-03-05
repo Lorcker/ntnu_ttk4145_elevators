@@ -35,7 +35,7 @@ func RunMonitor(
 			a := getAlive(lastSeen)
 			a = append(a, local) // The local elevator is always alive
 			log.Printf("[healthmonitor] Sent alive status: %v", a)
-			alive <- getAlive(lastSeen)
+			alive <- a
 		}
 	}
 }
