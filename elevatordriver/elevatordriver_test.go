@@ -15,8 +15,8 @@ func TestStarter(t *testing.T) {
 	pollFloorSensor := make(chan int)
 	pollOrders := make(chan models.Orders)
 	resolvedRequests := make(chan models.RequestMessage)
-  
-	receiver := make([]chan<- models.ElevatorState)
+
+	receiver := make([]chan<- models.ElevatorState, 0)
 	id := models.Id(3)
 
 	//For the test:
@@ -32,21 +32,17 @@ func TestStarter(t *testing.T) {
 
 }
 
-func testPollOrders(reciever chan<- models.Orders, receiverRequest chan models.RequestMessage) {
+func testPollOrders(receiver chan<- models.Orders, receiverRequest chan models.RequestMessage) {
 	orders := initOrders(NFloors)
-	for {
-		select {
-		case order_request := <-receiverRequest:
-			orders[order_request.Request.Origin.Floor][order_request.Request.Origin.ButtonType] = true
-			reciever <- orders
-			log.Printf("Orders from testPollOrders: %v", orders)
-		}
-
+	for order_request := range receiverRequest {
+		orders[order_request.Request.Origin.Floor][order_request.Request.Origin.ButtonType] = true
+		receiver <- orders
+		log.Printf("Orders from testPollOrders: %v", orders)
 	}
 }
 
-func testPollResolvedRequest(reciever <-chan models.RequestMessage) {
+func testPollResolvedRequest(receiver <-chan models.RequestMessage) {
 	for {
-		log.Printf("ResolvedRequest: %v", <-reciever)
+		log.Printf("ResolvedRequest: %v", <-receiver)
 	}
 }
