@@ -63,6 +63,7 @@ func RunUdpWriter(outgoingMessages <-chan udpMessage, remote net.UDPAddr) {
 // init registers all types that are used in the udpMessage to gob
 func init() {
 	gob.Register(models.Hall{})
+	gob.Register(models.Elevator{})
 	gob.Register(models.ElevatorState{})
 	gob.Register(models.Request{})
 	gob.Register(models.Origin{})

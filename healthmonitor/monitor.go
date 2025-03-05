@@ -1,6 +1,7 @@
 package healthmonitor
 
 import (
+	"log"
 	"time"
 
 	"group48.ttk4145.ntnu/elevators/models"
@@ -18,7 +19,8 @@ type lastSeen = map[models.Id]time.Time
 // and tracks which elevators are alive.
 func RunMonitor(
 	ping <-chan models.Id,
-	alive chan<- []models.Id) {
+	alive chan<- []models.Id,
+	local models.Id) {
 
 	var lastSeen = make(lastSeen)
 	ticker := time.NewTicker(PollInterval)
@@ -27,9 +29,13 @@ func RunMonitor(
 	for {
 		select {
 		case id := <-ping:
+			log.Printf("[healthmonitor] Received ping from %v", id)
 			lastSeen[id] = time.Now()
 		case <-ticker.C:
-			alive <- getAlive(lastSeen)
+			a := getAlive(lastSeen)
+			a = append(a, local) // The local elevator is always alive
+			log.Printf("[healthmonitor] Sent alive status: %v", a)
+			alive <- a
 		}
 	}
 }

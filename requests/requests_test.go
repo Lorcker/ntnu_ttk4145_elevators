@@ -34,8 +34,36 @@ func TestRequestManager_OnePeerCycle(t *testing.T) {
 	// As there is only one peer, the request should be confirmed immediately
 	msg.Request.Status = m.Unconfirmed
 	expected.Status = m.Confirmed
+	res := rm.process(msg)
+	if res != expected {
+		t.Errorf("Expected %v, got %v", expected, rm.store[msg.Request.Origin])
+	}
+
+	// Should change from confirmed to absent
+	msg.Request.Status = m.Absent
+	expected.Status = m.Absent
 	rm.process(msg)
+
 	if rm.store[msg.Request.Origin] != expected {
+		t.Errorf("Expected %v, got %v", expected, rm.store[msg.Request.Origin])
+	}
+}
+
+func TestRequestManager_OnePeerFirstUnconfirmed(t *testing.T) {
+	// Test that the request manager processes a unconfirmed request from one peer wihout a previous request correctly
+
+	// Setup
+	var rm = newRequestManager()
+	rm.alivePeers = []m.Id{1}
+	var request = m.Request{Origin: m.Origin{Source: m.Hall{}, Floor: 1, ButtonType: m.HallUp}, Status: m.Unknown}
+	var msg = m.RequestMessage{Source: 1, Request: request}
+	var expected = request
+
+	// As there is only one peer, the request should be confirmed immediately
+	msg.Request.Status = m.Unconfirmed
+	expected.Status = m.Confirmed
+	res := rm.process(msg)
+	if res != expected {
 		t.Errorf("Expected %v, got %v", expected, rm.store[msg.Request.Origin])
 	}
 

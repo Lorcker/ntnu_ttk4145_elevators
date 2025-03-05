@@ -10,7 +10,7 @@ import (
 )
 
 func initTestElevator(nFloors int) models.Orders {
-	elevatorio.Init("localhost:15680", 4)
+	elevatorio.Init("localhost:15680", 4, models.Id(0))
 	onInitBetweenFloors()
 	orders := initOrders(nFloors)
 	setAllElevatorLights(orders)

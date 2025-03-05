@@ -1,6 +1,8 @@
 package requests
 
 import (
+	"log"
+
 	m "group48.ttk4145.ntnu/elevators/models"
 )
 
@@ -14,11 +16,16 @@ func RunRequestServer(
 	for {
 		select {
 		case msg := <-incomingRequests:
+			log.Printf("[requests] Received request: %v", msg.Request)
+
 			r := requestManager.process(msg)
+			log.Printf("[requests] Processed request: %v", r)
 			for _, s := range subscribers {
 				s <- r
 			}
 		case alivePeers := <-peerStatus:
+			log.Printf("[requests] Received alive peers: %v", alivePeers)
+
 			requestManager.alivePeers = alivePeers
 		}
 	}
@@ -41,7 +48,6 @@ func newRequestManager() *requestManager {
 func (rm *requestManager) process(msg m.RequestMessage) m.Request {
 	if _, ok := rm.store[msg.Request.Origin]; !ok {
 		rm.store[msg.Request.Origin] = msg.Request
-		return msg.Request
 	}
 
 	switch msg.Request.Status {

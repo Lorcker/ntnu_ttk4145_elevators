@@ -1,6 +1,7 @@
 package comms
 
 import (
+	"log"
 	"net"
 	"time"
 
@@ -40,13 +41,19 @@ func RunComms(
 	for {
 		select {
 		case eState := <-localElevatorUpdates:
+			log.Printf("[comms] Received local elevator state update: %v", eState)
 			internalEState = eState
 		case request := <-internalValidatedRequests:
-			healthMonitorPing <- localPeer
+			log.Printf("[comms] Received validated request: %v", request)
 			validatedRequestsBuffer[request.Origin] = request
 		case <-sendTicker.C:
-			sendUdp <- udpMessage{Source: localPeer, EState: internalEState, Requests: convert(validatedRequestsBuffer)}
+			u := udpMessage{Source: localPeer, EState: internalEState, Requests: convert(validatedRequestsBuffer)}
+			sendUdp <- u
 		case msg := <-receiveUdp:
+			if msg.Source == localPeer {
+				continue
+			}
+
 			healthMonitorPing <- msg.Source
 			outgoingEStatesUpdates <- msg.EState
 			for _, r := range msg.Requests {

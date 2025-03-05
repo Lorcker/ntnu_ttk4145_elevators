@@ -2,6 +2,7 @@ package elevatorio
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"sync"
 	"time"
@@ -15,14 +16,15 @@ var _initialized bool = false
 var _numFloors int = 4
 var _mtx sync.Mutex
 var _conn net.Conn
-var _Id models.Id = 1
+var _Id models.Id
 
-func Init(addr string, numFloors int) {
+func Init(addr string, numFloors int, local models.Id) {
 	if _initialized {
 		fmt.Println("Driver already initialized!")
 		return
 	}
 	_numFloors = numFloors
+	_Id = local
 	_mtx = sync.Mutex{}
 	var err error
 	_conn, err = net.Dial("tcp", addr)
@@ -60,6 +62,7 @@ func PollRequests(receiver chan<- models.RequestMessage) {
 			for b := models.ButtonType(0); b < 3; b++ {
 				v := GetButton(b, f)
 				if v != prev[f][b] && v != false {
+					log.Printf("[elevatorio] Button %v at floor %v pressed", b, f)
 					var s models.Source
 					if models.Cab == b {
 						s = models.Elevator{_Id}
