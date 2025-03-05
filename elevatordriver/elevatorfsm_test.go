@@ -30,6 +30,7 @@ func TestMain(t *testing.T) {
 	recieverDoorTimer := make(chan bool, 10)
 	recieverObstructionSwitch := make(chan bool, 10)
 	recieverStopButton := make(chan bool, 10)
+	resolvedRequests := make(chan models.RequestMessage)
 
 	// Run the PollRequests function in a separate goroutine
 	go elevatorio.PollRequests(receiverOrder)
@@ -51,7 +52,7 @@ func TestMain(t *testing.T) {
 			orders[order_request.Request.Origin.Floor][order_request.Request.Origin.ButtonType] = true
 			printOrders(orders)
 			setAllElevatorLights(orders)
-			HandleOrderEvent(&elevator, orders, recieverDoorTimer)
+			HandleOrderEvent(&elevator, orders, recieverDoorTimer, resolvedRequests)
 
 		case <-recieverDoorTimer:
 			OpenDoor(&elevator)
@@ -62,14 +63,14 @@ func TestMain(t *testing.T) {
 
 		case <-timer.C:
 			if elevator.Behavior == models.DoorOpen && !isObstructed {
-				HandleDoorTimerEvent(&elevator, orders, recieverDoorTimer)
+				HandleDoorTimerEvent(&elevator, orders, recieverDoorTimer, resolvedRequests)
 			} else {
 				fmt.Printf("Remove Obstruction!\n")
 				timer.Reset(3 * time.Second)
 			}
 
 		case floor_sensor := <-recieverFloorSensor:
-			HandleFloorsensorEvent(&elevator, orders, floor_sensor, recieverDoorTimer)
+			HandleFloorsensorEvent(&elevator, orders, floor_sensor, recieverDoorTimer, resolvedRequests)
 			printElevatorState(elevator)
 
 		case <-recieverStopButton:
