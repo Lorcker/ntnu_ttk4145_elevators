@@ -35,11 +35,11 @@ func Starter(pollObstructionSwitch <-chan bool,
 		select {
 		case orders = <-pollOrders:
 			log.Printf("[elevatordriver] Received new orders: %v", orders)
-			HandleOrderEvent(&elevator, orders, recieverStartDoorTimer, resolvedRequests)
+			HandleOrderEvent(&elevator, orders, receiverStartDoorTimer, resolvedRequests)
 
 		case floor_sensor := <-pollFloorSensor:
 			log.Printf("[elevatordriver] Received floor sensor: %v", floor_sensor)
-			HandleFloorsensorEvent(&elevator, orders, floor_sensor, recieverStartDoorTimer, resolvedRequests)
+			HandleFloorsensorEvent(&elevator, orders, floor_sensor, receiverStartDoorTimer, resolvedRequests)
 
 		case <-receiverStartDoorTimer:
 			log.Printf("[elevatordriver] Received open door message")
@@ -56,7 +56,7 @@ func Starter(pollObstructionSwitch <-chan bool,
 		case <-timerDoor.C:
 			log.Printf("[elevatordriver] Received door closed message")
 			if elevator.Behavior == models.DoorOpen && !isObstructed {
-				HandleDoorTimerEvent(&elevator, orders, recieverStartDoorTimer, resolvedRequests)
+				HandleDoorTimerEvent(&elevator, orders, receiverStartDoorTimer, resolvedRequests)
 			} else {
 				timerDoor.Reset(time.Duration(doorTimerDuration) * time.Second)
 			}
