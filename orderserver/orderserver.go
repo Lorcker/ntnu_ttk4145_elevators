@@ -48,7 +48,7 @@ func RunOrderServer(
 
 			status := r.Status == models.Confirmed // convert the status to a boolean
 
-			if elevators.states != nil {
+			if len(elevators.states) > 0 {
 				// add the request to the orders channel
 				if _, ok := r.Origin.Source.(models.Hall); ok {
 					elevators.hallRequests[r.Origin.Floor][r.Origin.ButtonType] = status
@@ -58,6 +58,7 @@ func RunOrderServer(
 
 				// calculates the optimal orders for the elevators
 				order := optimalHallRequests(elevators)[localPeerId]
+				log.Printf("[orderserver] Turned requests into order: %v", order)
 				orders <- order
 				log.Printf("[orderserver] Send order to channel: %v", order)
 			}
