@@ -52,8 +52,8 @@ func Starter(pollObstructionSwitch <-chan bool,
 			o = models.Origin{Source: models.Elevator{Id: id}, Floor: floor_sensor, ButtonType: models.Cab}
 			r = models.Request{Origin: o, Status: models.Absent}
 			resolvedRequests <- models.RequestMessage{Source: id, Request: r}
-      
-      log.Printf("[elevatordriver] Sent resolved requests")
+
+			log.Printf("[elevatordriver] Sent resolved requests")
 		case <-recieverStartDoorTimer:
 			log.Printf("[elevatordriver] Received open door message")
 			OpenDoor(&elevator)
@@ -62,6 +62,9 @@ func Starter(pollObstructionSwitch <-chan bool,
 		case <-pollObstructionSwitch:
 			log.Printf("[elevatordriver] Received obstruction message")
 			isObstructed = !isObstructed
+			if elevator.Behavior == models.DoorOpen {
+				timerDoor.Reset(time.Duration(doorTimerDuration) * time.Second)
+			}
 
 		case <-timerDoor.C:
 			log.Printf("[elevatordriver] Received door closed message")
