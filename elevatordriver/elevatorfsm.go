@@ -26,7 +26,7 @@ func initElevator(orders models.Orders) {
 
 }
 
-func HandleOrderEvent(elevator *models.ElevatorState, orders models.Orders, recieverDoorTimer chan<- bool) {
+func HandleOrderEvent(elevator *models.ElevatorState, orders models.Orders, recieverDoorTimer chan<- bool, resolvedRequests chan<- models.RequestMessage) {
 	setAllElevatorLights(orders)
 	switch elevator.Behavior {
 	case models.Idle:
@@ -34,7 +34,7 @@ func HandleOrderEvent(elevator *models.ElevatorState, orders models.Orders, reci
 		switch elevator.Behavior {
 		case models.DoorOpen:
 			//Start timer
-			RequestClearAtCurrentFloor(*elevator, &orders)
+			RequestClearAtCurrentFloor(*elevator, &orders, resolvedRequests)
 
 		case models.Moving:
 			elevatorio.SetMotorDirection(elevator.Direction)
@@ -46,7 +46,7 @@ func HandleOrderEvent(elevator *models.ElevatorState, orders models.Orders, reci
 	case models.DoorOpen:
 		if RequestShouldClearImmediatly(*elevator, orders) {
 			recieverDoorTimer <- true
-			RequestClearAtCurrentFloor(*elevator, &orders)
+			RequestClearAtCurrentFloor(*elevator, &orders, resolvedRequests)
 		}
 
 	case models.Moving:
@@ -55,7 +55,7 @@ func HandleOrderEvent(elevator *models.ElevatorState, orders models.Orders, reci
 	}
 }
 
-func HandleFloorsensorEvent(elevator *models.ElevatorState, orders models.Orders, floor int, recieverDoorTimer chan<- bool) {
+func HandleFloorsensorEvent(elevator *models.ElevatorState, orders models.Orders, floor int, recieverDoorTimer chan<- bool, resolvedRequests chan<- models.RequestMessage) {
 	elevator.Floor = floor
 	elevatorio.SetFloorIndicator(floor)
 	switch elevator.Behavior {
@@ -63,7 +63,7 @@ func HandleFloorsensorEvent(elevator *models.ElevatorState, orders models.Orders
 		if RequestShouldStop(*elevator, orders) {
 			elevatorio.SetMotorDirection((0))
 			elevatorio.SetDoorOpenLamp(true)
-			RequestClearAtCurrentFloor(*elevator, &orders)
+			RequestClearAtCurrentFloor(*elevator, &orders, resolvedRequests)
 			setAllElevatorLights(orders)
 			recieverDoorTimer <- true
 		}
@@ -77,7 +77,7 @@ func HandleRequestButtonEvent(elevator models.ElevatorState, button models.Butto
 }
 
 // When timer is done, close the door, and go in desired direction.
-func HandleDoorTimerEvent(elevator *models.ElevatorState, orders models.Orders, recieverDoorTimer chan<- bool) {
+func HandleDoorTimerEvent(elevator *models.ElevatorState, orders models.Orders, recieverDoorTimer chan<- bool, resolvedRequests chan<- models.RequestMessage) {
 	switch elevator.Behavior {
 	case models.DoorOpen:
 		RequestChooseDirection(elevator, orders, recieverDoorTimer)
@@ -85,7 +85,7 @@ func HandleDoorTimerEvent(elevator *models.ElevatorState, orders models.Orders, 
 		switch elevator.Behavior {
 		case models.DoorOpen:
 			recieverDoorTimer <- true
-			RequestClearAtCurrentFloor(*elevator, &orders)
+			RequestClearAtCurrentFloor(*elevator, &orders, resolvedRequests)
 			setAllElevatorLights(orders)
 
 		case models.Moving, models.Idle:
@@ -199,32 +199,46 @@ func RequestBelow(e models.ElevatorState, orders models.Orders) bool {
 
 }
 
-func RequestClearAtCurrentFloor(e models.ElevatorState, orders *models.Orders) {
+func RequestClearAtCurrentFloor(e models.ElevatorState, orders *models.Orders, resolvedRequests chan<- models.RequestMessage) {
 	//Definisjon. True: Alle ordre skal fjernes fra etasjen (alle går på). False: Bare de i samme retning.
 	if EverybodyGoesOn {
 		for j := 0; j < NButtons; j++ {
 			(*orders)[e.Floor][j] = false
+			sendResolvedRequestsHallUp(e, resolvedRequests)
+			sendResolvedRequestsHallDown(e, resolvedRequests)
+			sendResolvedRequestsCabCall(e, resolvedRequests)
 		}
 	} else {
 		(*orders)[e.Floor][models.Cab] = false
+		sendResolvedRequestsCabCall(e, resolvedRequests)
+
 		switch e.Direction {
 		case models.Up:
 			if !RequestAbove(e, (*orders)) && !(*orders)[e.Floor][models.HallUp] {
 				(*orders)[e.Floor][models.HallDown] = false
+				sendResolvedRequestsHallDown(e, resolvedRequests)
+
 			}
 			(*orders)[e.Floor][models.HallUp] = false
+			sendResolvedRequestsHallUp(e, resolvedRequests)
 
 		case models.Down:
 			if !RequestBelow(e, (*orders)) && !(*orders)[e.Floor][models.HallDown] {
 				(*orders)[e.Floor][models.HallUp] = false
+				sendResolvedRequestsHallUp(e, resolvedRequests)
+
 			}
 			(*orders)[e.Floor][models.HallDown] = false
+			sendResolvedRequestsHallDown(e, resolvedRequests)
 
 		case models.Stop:
 			fallthrough
 		default:
 			(*orders)[e.Floor][models.HallDown] = false
 			(*orders)[e.Floor][models.HallUp] = false
+			sendResolvedRequestsHallDown(e, resolvedRequests)
+			sendResolvedRequestsHallUp(e, resolvedRequests)
+
 		}
 
 	}
@@ -335,4 +349,25 @@ func initOrders(numFloors int) models.Orders {
 		}
 	}
 	return orders
+}
+
+func sendResolvedRequestsHallUp(e models.ElevatorState, resolvedRequests chan<- models.RequestMessage) {
+	o := models.Origin{Source: models.Hall{}, Floor: e.Floor, ButtonType: models.HallUp}
+	r := models.Request{Origin: o, Status: models.Absent}
+	resolvedRequests <- models.RequestMessage{Source: e.Id, Request: r}
+	log.Printf("[Elevatorfsm] Resolved request HallUp from floor: %d", e.Floor)
+}
+func sendResolvedRequestsHallDown(e models.ElevatorState, resolvedRequests chan<- models.RequestMessage) {
+	o := models.Origin{Source: models.Hall{}, Floor: e.Floor, ButtonType: models.HallDown}
+	r := models.Request{Origin: o, Status: models.Absent}
+	resolvedRequests <- models.RequestMessage{Source: e.Id, Request: r}
+	log.Printf("[Elevatorfsm] Resolved request HallDown from floor: %d", e.Floor)
+
+}
+func sendResolvedRequestsCabCall(e models.ElevatorState, resolvedRequests chan<- models.RequestMessage) {
+	o := models.Origin{Source: models.Elevator{Id: e.Id}, Floor: e.Floor, ButtonType: models.Cab}
+	r := models.Request{Origin: o, Status: models.Absent}
+	resolvedRequests <- models.RequestMessage{Source: e.Id, Request: r}
+	log.Printf("[Elevatorfsm] Resolved cab request from floor: %d", e.Floor)
+
 }
