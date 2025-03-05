@@ -26,7 +26,7 @@ func main() {
 	var floorSensorUpdates = make(chan int)
 	var obstructionSwitchUpdates = make(chan bool)
 
-	elevatorio.Init(config.ElevatorAddr, config.NumFloors)
+	elevatorio.Init(config.ElevatorAddr, config.NumFloors, models.Id(config.LocalPeerId))
 	go elevatorio.PollRequests(unvalidatedRequests)
 	go elevatorio.PollFloorSensor(floorSensorUpdates)
 	go elevatorio.PollObstructionSwitch(obstructionSwitchUpdates)
@@ -58,7 +58,7 @@ func main() {
 
 	// Health monitor module initialization
 	var ping = make(chan models.Id)
-	go healthmonitor.RunMonitor(ping, aliveStatus)
+	go healthmonitor.RunMonitor(ping, aliveStatus, models.Id(config.LocalPeerId))
 
 	// Comms module initialization
 	var internalValidatedRequestsToComms = make(chan models.Request)

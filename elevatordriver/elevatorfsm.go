@@ -17,10 +17,8 @@ func onInitBetweenFloors() {
 }
 
 func initElevator(orders models.Orders) {
-	elevatorio.Init("localhost:15680", 4)
 	onInitBetweenFloors()
 	setAllElevatorLights(orders)
-
 }
 
 func HandleOrderEvent(elevator *models.ElevatorState, orders models.Orders, recieverDoorTimer chan<- bool) {

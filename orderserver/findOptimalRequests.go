@@ -1,6 +1,7 @@
 package orderserver
 
 import (
+	"log"
 	"sort"
 	"time"
 
@@ -13,12 +14,18 @@ type State struct {
 	time        time.Time
 }
 
-type Reqest struct {
+type Request struct {
 	active     bool
-	assignedTo models.Id
+	assignedTo int
 }
 
+const (
+	unassignedId = -1 // an Id to represent that a request is not assigned to any elevator
+)
+
 func optimalHallRequests(elevators elevators) map[models.Id]models.Orders {
+	log.Printf("[orderserver] Calculating optimal orders: %v", elevators)
+
 	reqs := addRequests(elevators)
 	states := initialStates(elevators)
 
@@ -48,7 +55,7 @@ func optimalHallRequests(elevators elevators) map[models.Id]models.Orders {
 		results[models.Id(state.Id)] = make(models.Orders, numFloors)
 		for i, reqsAtFloor := range reqs {
 			for j, req := range reqsAtFloor {
-				if req.active && req.assignedTo == models.Id(state.Id) {
+				if req.active && req.assignedTo == int(state.Id) {
 					results[models.Id(state.Id)][i][j] = true
 				}
 			}
@@ -62,21 +69,22 @@ func optimalHallRequests(elevators elevators) map[models.Id]models.Orders {
 	return results
 }
 
-func addRequests(e elevators) [][2]Reqest {
+// addRequests creates a 2D array of requests from the hall buttons
+func addRequests(e elevators) [][2]Request {
 	// initialize a 2D array of requests, one for each floor and direction
-	reqs := make([][2]Reqest, numFloors)
+	reqs := make([][2]Request, numFloors)
 	for i := range reqs {
-		reqs[i] = [2]Reqest{
-			{active: false, assignedTo: 0},
-			{active: false, assignedTo: 0},
+		reqs[i] = [2]Request{
+			{active: false, assignedTo: unassignedId},
+			{active: false, assignedTo: unassignedId},
 		}
 	}
 	// add the requests from the hall buttons
-	for f, floorRequests := range e.requests {
+	for f, floorRequests := range e.hallRequests {
 		for c, req := range floorRequests {
-			reqs[f][c] = Reqest{
+			reqs[f][c] = Request{
 				active:     req,
-				assignedTo: 0,
+				assignedTo: unassignedId,
 			}
 		}
 	}
@@ -85,17 +93,19 @@ func addRequests(e elevators) [][2]Reqest {
 
 func initialStates(e elevators) []State {
 	states := make([]State, len(e.states))
-	for i, elevator := range e.states {
+	i := 0
+	for _, elevator := range e.states {
 		states[i] = State{
 			ElevatorState: elevator.ElevatorState,
 			CabRequests:   elevator.cabRequests,
 			time:          time.Now(),
 		}
+		i++
 	}
 	return states
 }
 
-func performInitialMove(s *State, req *[][2]Reqest) {
+func performInitialMove(s *State, req *[][2]Request) {
 	switch s.Behavior {
 	case models.DoorOpen: // if the elevator is at a floor with the door open, wait for it to close
 		s.time = s.time.Add(doorOpenDuration / 2)
@@ -104,7 +114,7 @@ func performInitialMove(s *State, req *[][2]Reqest) {
 	case models.Idle: // if the elevator is idle, check if there are any requests at the current floor
 		for c := range 2 {
 			if (*req)[s.Floor][c].active {
-				(*req)[s.Floor][c].assignedTo = s.Id
+				(*req)[s.Floor][c].assignedTo = int(s.Id)
 				s.time = s.time.Add(doorOpenDuration)
 			}
 		}
@@ -114,14 +124,14 @@ func performInitialMove(s *State, req *[][2]Reqest) {
 	}
 }
 
-func performSingleMove(s *State, req *[][2]Reqest) {
+func performSingleMove(s *State, req *[][2]Request) {
 	//add a elevator with all the unassisgned requests
 	e := anyUnassignedElevator(s, req)
 
 	onClearRequest := func(c models.ButtonType) {
 		switch c {
 		case models.HallUp, models.HallDown:
-			(*req)[s.Floor][c].assignedTo = s.Id
+			(*req)[s.Floor][c].assignedTo = int(s.Id)
 		case models.Cab:
 			s.CabRequests[s.Floor] = false
 		}
@@ -155,7 +165,7 @@ func performSingleMove(s *State, req *[][2]Reqest) {
 	}
 }
 
-func anyUnassignedElevator(s *State, req *[][2]Reqest) localElevator {
+func anyUnassignedElevator(s *State, req *[][2]Request) localElevator {
 	e := localElevator{
 		ElevatorState: s.ElevatorState,
 		requests:      make([][3]bool, numFloors),
@@ -163,7 +173,7 @@ func anyUnassignedElevator(s *State, req *[][2]Reqest) localElevator {
 
 	for f, floorRequests := range *req {
 		for c, req := range floorRequests {
-			if req.active && req.assignedTo == 0 {
+			if req.active && req.assignedTo == unassignedId {
 				e.requests[f][c] = true
 			}
 		}
@@ -177,7 +187,7 @@ func anyUnassignedElevator(s *State, req *[][2]Reqest) localElevator {
 	return e
 }
 
-func unvisitedAreImmediatelyAssignable(reqs [][2]Reqest, states []State) bool {
+func unvisitedAreImmediatelyAssignable(reqs [][2]Request, states []State) bool {
 	for _, state := range states {
 		if any(state.CabRequests) {
 			return false
@@ -194,7 +204,7 @@ func unvisitedAreImmediatelyAssignable(reqs [][2]Reqest, states []State) bool {
 			return false
 		}
 		for _, req := range reqsAtFloor {
-			if req.active && req.assignedTo == 0 {
+			if req.active && req.assignedTo == unassignedId {
 				found := false
 				for _, state := range states {
 					if state.Floor == f && !any(state.CabRequests) {
@@ -211,14 +221,14 @@ func unvisitedAreImmediatelyAssignable(reqs [][2]Reqest, states []State) bool {
 	return true
 }
 
-func assignImmediate(reqs *[][2]Reqest, states *[]State) {
+func assignImmediate(reqs *[][2]Request, states *[]State) {
 	for f, reqsAtFloor := range *reqs {
 		for c, req := range reqsAtFloor {
 			for i := range *states {
 				s := &(*states)[i]
-				if req.active && req.assignedTo == 0 {
+				if req.active && req.assignedTo == unassignedId {
 					if s.Floor == f && !any(s.CabRequests) {
-						(*reqs)[f][c].assignedTo = s.Id
+						(*reqs)[f][c].assignedTo = int(s.Id)
 						s.time = s.time.Add(doorOpenDuration)
 					}
 				}
@@ -236,10 +246,10 @@ func any(arr []bool) bool {
 	return false
 }
 
-func anyUnassigned(reqs [][2]Reqest) bool {
+func anyUnassigned(reqs [][2]Request) bool {
 	for _, floorReqs := range reqs {
 		for _, req := range floorReqs {
-			if req.active && req.assignedTo == 0 {
+			if req.active && req.assignedTo == unassignedId {
 				return true
 			}
 		}
