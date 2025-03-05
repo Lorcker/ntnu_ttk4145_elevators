@@ -14,8 +14,9 @@ func TestStarter(t *testing.T) {
 	pollObstructionSwitch := make(chan bool)
 	pollFloorSensor := make(chan int)
 	pollOrders := make(chan models.Orders)
-	resolvedRequests := make(chan models.RequestMessage, 0)
-	receiver := make([]chan<- models.ElevatorState, 0)
+	resolvedRequests := make(chan models.RequestMessage)
+  
+	receiver := make([]chan<- models.ElevatorState)
 	id := models.Id(3)
 
 	//For the test:

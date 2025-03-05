@@ -21,7 +21,7 @@ func Starter(pollObstructionSwitch <-chan bool,
 	id models.Id) {
 
 	// Init elevator, obstruction and timer
-	elevator := models.ElevatorState{Id: (uint8(id)), Floor: 0, Behavior: models.Idle, Direction: models.MotorDirection(0)}
+	elevator := models.ElevatorState{Id: id, Floor: 0, Behavior: models.Idle, Direction: models.MotorDirection(0)}
 	orders := initOrders(NFloors)
 	initElevator(orders)
 
@@ -41,7 +41,6 @@ func Starter(pollObstructionSwitch <-chan bool,
 			log.Printf("[elevatordriver] Received floor sensor: %v", floor_sensor)
 			HandleFloorsensorEvent(&elevator, orders, floor_sensor, recieverStartDoorTimer)
 
-			// Send resolved requests
 			o := models.Origin{Source: models.Hall{}, Floor: floor_sensor, ButtonType: models.HallUp}
 			r := models.Request{Origin: o, Status: models.Absent}
 			resolvedRequests <- models.RequestMessage{Source: id, Request: r}
@@ -53,7 +52,8 @@ func Starter(pollObstructionSwitch <-chan bool,
 			o = models.Origin{Source: models.Elevator{Id: id}, Floor: floor_sensor, ButtonType: models.Cab}
 			r = models.Request{Origin: o, Status: models.Absent}
 			resolvedRequests <- models.RequestMessage{Source: id, Request: r}
-
+      
+      log.Printf("[elevatordriver] Sent resolved requests")
 		case <-recieverStartDoorTimer:
 			log.Printf("[elevatordriver] Received open door message")
 			OpenDoor(&elevator)

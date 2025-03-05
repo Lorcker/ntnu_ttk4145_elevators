@@ -21,13 +21,14 @@ func RunMonitor(
 	alive chan<- []models.Id) {
 
 	var lastSeen = make(lastSeen)
-	var timer = time.NewTimer(PollInterval)
+	ticker := time.NewTicker(PollInterval)
+	defer ticker.Stop()
 
 	for {
 		select {
 		case id := <-ping:
 			lastSeen[id] = time.Now()
-		case <-timer.C:
+		case <-ticker.C:
 			alive <- getAlive(lastSeen)
 		}
 	}

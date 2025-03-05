@@ -53,7 +53,8 @@ func main() {
 		validatedRequestsToOrder,
 		elevatorStatesToOrders,
 		aliveStatus,
-		orders)
+		orders,
+		models.Id(config.LocalPeerId))
 
 	// Health monitor module initialization
 	var ping = make(chan models.Id)
