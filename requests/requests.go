@@ -19,6 +19,7 @@ func RunRequestServer(
 			log.Printf("[requests] Received request: %v", msg.Request)
 
 			r := requestManager.process(msg)
+			log.Printf("[requests] Processed request: %v", r)
 			for _, s := range subscribers {
 				s <- r
 			}
@@ -47,7 +48,6 @@ func newRequestManager() *requestManager {
 func (rm *requestManager) process(msg m.RequestMessage) m.Request {
 	if _, ok := rm.store[msg.Request.Origin]; !ok {
 		rm.store[msg.Request.Origin] = msg.Request
-		return msg.Request
 	}
 
 	switch msg.Request.Status {

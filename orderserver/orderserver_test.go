@@ -177,6 +177,21 @@ func TestOptimalHallRequests(t *testing.T) {
 				1: {{false, false}, {true, true}, {true, true}, {false, false}},
 			},
 		},
+		{
+			name: "Single elevator starting at 1, idle with up orders at 1 and 2",
+			states: []elevatorstate{
+				{models.ElevatorState{Id: 1, Floor: 1, Direction: models.Stop, Behavior: models.Idle}, make([]bool, numFloors)},
+			},
+			hallreqs: [][2]bool{
+				{false, false},
+				{true, false},
+				{true, false},
+				{false, false},
+			},
+			expected: map[models.Id]models.Orders{
+				1: {{false, false}, {true, false}, {true, false}, {false, false}},
+			},
+		},
 	}
 
 	for _, tt := range tests {
