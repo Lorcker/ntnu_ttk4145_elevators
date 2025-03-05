@@ -16,7 +16,7 @@ var NFloors int = 4
 func Starter(pollObstructionSwitch <-chan bool,
 	pollFloorSensor <-chan int,
 	pollOrders <-chan models.Orders,
-	resolvedRequests chan<- models.Request,
+	resolvedRequests chan<- models.RequestMessage,
 	receiver []chan<- models.ElevatorState,
 	id models.Id) {
 
@@ -41,9 +41,18 @@ func Starter(pollObstructionSwitch <-chan bool,
 			log.Printf("[elevatordriver] Received floor sensor: %v", floor_sensor)
 			HandleFloorsensorEvent(&elevator, orders, floor_sensor, recieverStartDoorTimer)
 
-			resolvedRequests <- models.Request{Origin: models.Origin{Source: models.Hall{}, Floor: floor_sensor, ButtonType: models.HallUp}, Status: models.Absent}
-			resolvedRequests <- models.Request{Origin: models.Origin{Source: models.Hall{}, Floor: floor_sensor, ButtonType: models.HallDown}, Status: models.Absent}
-			resolvedRequests <- models.Request{Origin: models.Origin{Source: models.Elevator{Id: id}, Floor: floor_sensor, ButtonType: models.Cab}, Status: models.Absent}
+			// Send resolved requests
+			o := models.Origin{Source: models.Hall{}, Floor: floor_sensor, ButtonType: models.HallUp}
+			r := models.Request{Origin: o, Status: models.Absent}
+			resolvedRequests <- models.RequestMessage{Source: id, Request: r}
+
+			o = models.Origin{Source: models.Hall{}, Floor: floor_sensor, ButtonType: models.HallDown}
+			r = models.Request{Origin: o, Status: models.Absent}
+			resolvedRequests <- models.RequestMessage{Source: id, Request: r}
+
+			o = models.Origin{Source: models.Elevator{Id: id}, Floor: floor_sensor, ButtonType: models.Cab}
+			r = models.Request{Origin: o, Status: models.Absent}
+			resolvedRequests <- models.RequestMessage{Source: id, Request: r}
 
 		case <-recieverStartDoorTimer:
 			log.Printf("[elevatordriver] Received open door message")

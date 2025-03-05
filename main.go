@@ -33,7 +33,6 @@ func main() {
 
 	// Elevator Driver module initialization
 	var orders = make(chan models.Orders)
-	var resolvedRequests = make(chan models.Request)
 	var internalElevatorStateToComms = make(chan models.ElevatorState)
 	var elevatorStatesToOrders = make(chan models.ElevatorState)
 	var internalElevatorState = make([]chan<- models.ElevatorState, 2)
@@ -43,7 +42,7 @@ func main() {
 		obstructionSwitchUpdates,
 		floorSensorUpdates,
 		orders,
-		resolvedRequests,
+		unvalidatedRequests,
 		internalElevatorState,
 		models.Id(config.LocalPeerId))
 
