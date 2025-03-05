@@ -45,20 +45,20 @@ func RunOrderServer(
 		select {
 		case r := <-validatedRequests:
 			log.Printf("[orderserver] Received validated request: %v", r)
-			// if the request is confirmed, add it to the orders channel
-			if r.Status == models.Confirmed && elevators.states != nil {
+
+			status := r.Status == models.Confirmed // convert the status to a boolean
+
+			if len(elevators.states) > 0 {
 				// add the request to the orders channel
-				if r.Origin.ButtonType == models.HallUp || r.Origin.ButtonType == models.HallDown {
-					elevators.hallRequests[r.Origin.Floor][r.Origin.ButtonType] = true
+				if _, ok := r.Origin.Source.(models.Hall); ok {
+					elevators.hallRequests[r.Origin.Floor][r.Origin.ButtonType] = status
 				} else {
-					for _, elevator := range elevators.states {
-						if models.Id(elevator.Id) == r.Origin.Source.(models.Elevator).Id {
-							elevator.cabRequests[r.Origin.Floor] = true
-						}
-					}
+					elevators.states[r.Origin.Source.(models.Elevator).Id].cabRequests[r.Origin.Floor] = status
 				}
+
 				// calculates the optimal orders for the elevators
 				order := optimalHallRequests(elevators)[localPeerId]
+				log.Printf("[orderserver] Turned requests into order: %v", order)
 				orders <- order
 				log.Printf("[orderserver] Send order to channel: %v", order)
 			}

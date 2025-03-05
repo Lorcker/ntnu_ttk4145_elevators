@@ -49,12 +49,10 @@ func RunComms(
 		case <-sendTicker.C:
 			u := udpMessage{Source: localPeer, EState: internalEState, Requests: convert(validatedRequestsBuffer)}
 			sendUdp <- u
-			log.Printf("[comms] Sent UDP message: %v", u)
 		case msg := <-receiveUdp:
 			if msg.Source == localPeer {
 				continue
 			}
-			log.Printf("[comms] Received UDP message: %v", msg)
 
 			healthMonitorPing <- msg.Source
 			outgoingEStatesUpdates <- msg.EState
