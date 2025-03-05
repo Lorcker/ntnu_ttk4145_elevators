@@ -26,7 +26,7 @@ func main() {
 	var floorSensorUpdates = make(chan int)
 	var obstructionSwitchUpdates = make(chan bool)
 
-	elevatorio.Init(config.ElevatorAddr, config.NumFloors)
+	elevatorio.Init(config.ElevatorAddr, config.NumFloors, models.Id(config.LocalPeerId))
 	go elevatorio.PollRequests(unvalidatedRequests)
 	go elevatorio.PollFloorSensor(floorSensorUpdates)
 	go elevatorio.PollObstructionSwitch(obstructionSwitchUpdates)
