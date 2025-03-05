@@ -1,6 +1,7 @@
 package healthmonitor
 
 import (
+	"log"
 	"time"
 
 	"group48.ttk4145.ntnu/elevators/models"
@@ -27,9 +28,12 @@ func RunMonitor(
 	for {
 		select {
 		case id := <-ping:
+			log.Printf("[healthmonitor] Received ping from %v", id)
 			lastSeen[id] = time.Now()
 		case <-ticker.C:
-			alive <- getAlive(lastSeen)
+			a := getAlive(lastSeen)
+			alive <- a
+			log.Printf("[healthmonitor] Sent alive status: %v", a)
 		}
 	}
 }

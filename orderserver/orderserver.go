@@ -47,6 +47,7 @@ func RunOrderServer(
 	for {
 		select {
 		case r := <-validatedRequests:
+			log.Printf("[orderserver] Received validated request: %v", r)
 			// if the request is confirmed, add it to the orders channel
 			if r.Status == models.Confirmed && elevators.states != nil {
 				// add the request to the orders channel
@@ -61,11 +62,13 @@ func RunOrderServer(
 				}
 				// calculates the optimal orders for the elevators
 				order := optimalHallRequests(elevators)[localPeerId]
-				log.Printf("Sending order to channel: %v", order)
 				orders <- order
+				log.Printf("[orderserver] Send order to channel: %v", order)
 			}
+
 		// handle the alive channel
 		case a := <-alive:
+			log.Printf("[orderserver] Received alive status: %v", a)
 			// check if the elevator is already in the list of elevators
 			for _, id := range a {
 				found := false
@@ -85,6 +88,8 @@ func RunOrderServer(
 				}
 			}
 		case s := <-state:
+			log.Printf("[orderserver] Received elevator state: %v", s)
+
 			// update the state of the elevator
 			for index, elevState := range elevators.states {
 				if s.Id == elevState.Id {

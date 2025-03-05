@@ -1,6 +1,8 @@
 package requests
 
 import (
+	"log"
+
 	m "group48.ttk4145.ntnu/elevators/models"
 )
 
@@ -14,11 +16,15 @@ func RunRequestServer(
 	for {
 		select {
 		case msg := <-incomingRequests:
+			log.Printf("[requests] Received request: %v", msg.Request)
+
 			r := requestManager.process(msg)
 			for _, s := range subscribers {
 				s <- r
 			}
 		case alivePeers := <-peerStatus:
+			log.Printf("[requests] Received alive peers: %v", alivePeers)
+
 			requestManager.alivePeers = alivePeers
 		}
 	}
