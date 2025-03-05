@@ -1,7 +1,6 @@
 package orderserver
 
 import (
-	"fmt"
 	"log"
 	"time"
 
@@ -19,8 +18,8 @@ type elevatorstate struct {
 }
 
 type elevators struct {
-	requests [][2]bool
-	states   []elevatorstate
+	hallRequests [][2]bool
+	states       map[models.Id]elevatorstate
 }
 
 // Constants for the duration of the door opening and closing and the time it takes to travel between floors
@@ -38,12 +37,10 @@ func RunOrderServer(
 	orders chan<- models.Orders,
 	localPeerId models.Id) {
 
+	elevators := newElevators()
+	alivePeers := make(map[models.Id]bool)
+
 	//init local vars
-	elevators := elevators{}
-	elevators.requests = make([][2]bool, numFloors)
-	for i := range elevators.requests {
-		elevators.requests[i] = [2]bool{false, false}
-	}
 	for {
 		select {
 		case r := <-validatedRequests:
@@ -52,7 +49,7 @@ func RunOrderServer(
 			if r.Status == models.Confirmed && elevators.states != nil {
 				// add the request to the orders channel
 				if r.Origin.ButtonType == models.HallUp || r.Origin.ButtonType == models.HallDown {
-					elevators.requests[r.Origin.Floor][r.Origin.ButtonType] = true
+					elevators.hallRequests[r.Origin.Floor][r.Origin.ButtonType] = true
 				} else {
 					for _, elevator := range elevators.states {
 						if models.Id(elevator.Id) == r.Origin.Source.(models.Elevator).Id {
@@ -69,49 +66,45 @@ func RunOrderServer(
 		// handle the alive channel
 		case a := <-alive:
 			log.Printf("[orderserver] Received alive status: %v", a)
-			// check if the elevator is already in the list of elevators
+
+			newAlive := make(map[models.Id]bool)
 			for _, id := range a {
-				found := false
-				for _, elevator := range elevators.states {
-					if elevator.Id == id {
-						found = true
-						break
-					}
-				}
-				// if the elevator is not found in the list of elevators, add it
-				if !found {
-					elevators.states = append(elevators.states, elevatorstate{
-						ElevatorState: models.ElevatorState{
-							Id: id,
-						},
-					})
+				newAlive[id] = true
+				alivePeers[id] = true // add the peer to the alivePeers map
+			}
+
+			// Check if a peer died
+			for id := range alivePeers {
+				if _, ok := newAlive[id]; !ok {
+					// peer died - remove the peer from the states and alivePeers map to exclude it from the calculations
+					delete(elevators.states, id)
+					delete(alivePeers, id)
 				}
 			}
-		case s := <-state:
-			log.Printf("[orderserver] Received elevator state: %v", s)
 
-			// update the state of the elevator
-			for index, elevState := range elevators.states {
-				if s.Id == elevState.Id {
-					elevators.states[index] = elevatorstate{
-						ElevatorState: s,
-					}
-					break
-				} else {
-					fmt.Println("Elevator not found")
-				}
+		case newState := <-state:
+			log.Printf("[orderserver] Received elevator state: %v", newState)
 
-			}
-			isInBounds := func(f int) bool { return f >= 0 && f < numFloors }
-			for _, state := range elevators.states {
-				if !isInBounds(state.Floor) {
-					panic("Some elevator is at an invalid floor")
-				}
-				if state.Behavior == models.Moving && !isInBounds(state.Floor+int(state.Direction)) {
-					panic("Some elevator is moving away from an end floor")
-				}
+			if _, ok := elevators.states[newState.Id]; !ok {
+				// if the elevator is not in the states map, add it
+				elevators.states[newState.Id] = elevatorstate{ElevatorState: newState, cabRequests: make([]bool, numFloors)}
+			} else {
+				// if the elevator is in the states map, update the state but keep the cabRequests
+				currentState := elevators.states[newState.Id]
+				currentState.ElevatorState = newState
+				elevators.states[newState.Id] = currentState
 			}
 		}
 	}
 
+}
+
+func newElevators() elevators {
+	elevators := elevators{}
+	elevators.states = make(map[models.Id]elevatorstate)
+	elevators.hallRequests = make([][2]bool, numFloors)
+	for i := range elevators.hallRequests {
+		elevators.hallRequests[i] = [2]bool{false, false}
+	}
+	return elevators
 }

@@ -196,9 +196,14 @@ func TestOptimalHallRequests(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			m := make(map[models.Id]elevatorstate)
+			for _, state := range tt.states {
+				m[state.Id] = state
+			}
+
 			elevators := elevators{
-				states:   tt.states,
-				requests: tt.hallreqs,
+				states:       m,
+				hallRequests: tt.hallreqs,
 			}
 			actual := optimalHallRequests(elevators)
 			for id, orders := range tt.expected {

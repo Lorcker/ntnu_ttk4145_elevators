@@ -80,7 +80,7 @@ func addRequests(e elevators) [][2]Request {
 		}
 	}
 	// add the requests from the hall buttons
-	for f, floorRequests := range e.requests {
+	for f, floorRequests := range e.hallRequests {
 		for c, req := range floorRequests {
 			reqs[f][c] = Request{
 				active:     req,
@@ -93,12 +93,14 @@ func addRequests(e elevators) [][2]Request {
 
 func initialStates(e elevators) []State {
 	states := make([]State, len(e.states))
-	for i, elevator := range e.states {
+	i := 0
+	for _, elevator := range e.states {
 		states[i] = State{
 			ElevatorState: elevator.ElevatorState,
 			CabRequests:   elevator.cabRequests,
 			time:          time.Now(),
 		}
+		i++
 	}
 	return states
 }
