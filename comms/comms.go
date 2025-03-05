@@ -53,6 +53,10 @@ func RunComms(
 			log.Printf("[comms] Sent UDP message: %v", u)
 		case msg := <-receiveUdp:
 			log.Printf("[comms] Received UDP message: %v", msg)
+			if msg.Source == localPeer {
+				continue
+			}
+
 			healthMonitorPing <- msg.Source
 			outgoingEStatesUpdates <- msg.EState
 			for _, r := range msg.Requests {

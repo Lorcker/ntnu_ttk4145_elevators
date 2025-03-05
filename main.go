@@ -58,7 +58,7 @@ func main() {
 
 	// Health monitor module initialization
 	var ping = make(chan models.Id)
-	go healthmonitor.RunMonitor(ping, aliveStatus)
+	go healthmonitor.RunMonitor(ping, aliveStatus, models.Id(config.LocalPeerId))
 
 	// Comms module initialization
 	var internalValidatedRequestsToComms = make(chan models.Request)

@@ -19,7 +19,8 @@ type lastSeen = map[models.Id]time.Time
 // and tracks which elevators are alive.
 func RunMonitor(
 	ping <-chan models.Id,
-	alive chan<- []models.Id) {
+	alive chan<- []models.Id,
+	local models.Id) {
 
 	var lastSeen = make(lastSeen)
 	ticker := time.NewTicker(PollInterval)
@@ -32,8 +33,9 @@ func RunMonitor(
 			lastSeen[id] = time.Now()
 		case <-ticker.C:
 			a := getAlive(lastSeen)
-			alive <- a
+			a = append(a, local) // The local elevator is always alive
 			log.Printf("[healthmonitor] Sent alive status: %v", a)
+			alive <- getAlive(lastSeen)
 		}
 	}
 }
