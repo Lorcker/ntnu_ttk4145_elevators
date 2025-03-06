@@ -14,7 +14,7 @@
 # installed on your system. If you are using a different terminal, replace
 # xterm with the command to open a new terminal in the script.
 
-if [ "$#" -ne 2 ]; then
+if [ "$#" -ne 1 ]; then
     echo "Usage: $0 path_to_simulator_executable"
     exit 1
 fi
