@@ -22,9 +22,9 @@ func main() {
 	}
 
 	// Elevator IO module initialization
-	var unvalidatedRequests = make(chan models.RequestMessage)
-	var floorSensorUpdates = make(chan int)
-	var obstructionSwitchUpdates = make(chan bool)
+	var unvalidatedRequests = make(chan models.RequestMessage, 10) // Buffered channel
+	var floorSensorUpdates = make(chan int, 10)                    // Buffered channel
+	var obstructionSwitchUpdates = make(chan bool, 10)             // Buffered channel
 
 	elevatorio.Init(config.ElevatorAddr, config.NumFloors, models.Id(config.LocalPeerId))
 	go elevatorio.PollRequests(unvalidatedRequests)
@@ -32,9 +32,9 @@ func main() {
 	go elevatorio.PollObstructionSwitch(obstructionSwitchUpdates)
 
 	// Elevator Driver module initialization
-	var orders = make(chan models.Orders)
-	var internalElevatorStateToComms = make(chan models.ElevatorState)
-	var elevatorStatesToOrders = make(chan models.ElevatorState)
+	var orders = make(chan models.Orders, 10)                              // Buffered channel
+	var internalElevatorStateToComms = make(chan models.ElevatorState, 10) // Buffered channel
+	var elevatorStatesToOrders = make(chan models.ElevatorState, 10)       // Buffered channel
 	var internalElevatorState = make([]chan<- models.ElevatorState, 2)
 	internalElevatorState[0] = internalElevatorStateToComms
 	internalElevatorState[1] = elevatorStatesToOrders
@@ -47,8 +47,8 @@ func main() {
 		models.Id(config.LocalPeerId))
 
 	// Order module initialization
-	var aliveStatus = make(chan []models.Id)
-	var validatedRequestsToOrder = make(chan models.Request)
+	var aliveStatus = make(chan []models.Id, 10)                 // Buffered channel
+	var validatedRequestsToOrder = make(chan models.Request, 10) // Buffered channel
 	go orderserver.RunOrderServer(
 		validatedRequestsToOrder,
 		elevatorStatesToOrders,
@@ -57,11 +57,11 @@ func main() {
 		models.Id(config.LocalPeerId))
 
 	// Health monitor module initialization
-	var ping = make(chan models.Id)
+	var ping = make(chan models.Id, 10) // Buffered channel
 	go healthmonitor.RunMonitor(ping, aliveStatus, models.Id(config.LocalPeerId))
 
 	// Comms module initialization
-	var internalValidatedRequestsToComms = make(chan models.Request)
+	var internalValidatedRequestsToComms = make(chan models.Request, 10) // Buffered channel
 
 	go comms.RunComms(
 		models.Id(config.LocalPeerId),
