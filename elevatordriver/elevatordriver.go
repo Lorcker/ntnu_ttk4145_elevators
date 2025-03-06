@@ -9,7 +9,7 @@ import (
 
 // Global variables
 var doorTimerDuration = 3
-var sendElevatorStateDuration = 1
+var elevatorStatePollRate = time.Second * 3
 var NButtons int = 3
 var NFloors int = 4
 
@@ -28,7 +28,7 @@ func Starter(pollObstructionSwitch <-chan bool,
 	receiverStartDoorTimer := make(chan bool, 10)
 	timerDoor := time.NewTimer((time.Duration(doorTimerDuration)) * time.Second)
 	timerDoor.Stop()
-	timerSendElevatorState := time.NewTimer(time.Duration(sendElevatorStateDuration) * time.Second)
+	tickerSendElevatorState := time.NewTicker(elevatorStatePollRate)
 	isObstructed := false
 
 	for {
@@ -60,13 +60,12 @@ func Starter(pollObstructionSwitch <-chan bool,
 			} else {
 				timerDoor.Reset(time.Duration(doorTimerDuration) * time.Second)
 			}
-		case <-timerSendElevatorState.C:
+		case <-tickerSendElevatorState.C:
 			for _, ch := range receiver {
+				log.Printf("[elevatordriver] Sending elevator state to a receiver: %v", elevator)
 				ch <- elevator
-				log.Printf("[elevatordriver] Sent elevator state: %v", elevator)
 			}
-			timerSendElevatorState.Reset(time.Duration(sendElevatorStateDuration) * time.Second)
-
+			log.Printf("[elevatordriver] Sent elevator state to receivers: %v", elevator)
 		}
 	}
 }
