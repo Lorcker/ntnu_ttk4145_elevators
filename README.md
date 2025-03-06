@@ -17,3 +17,8 @@ The request mechanism and regular sharing of the elevator states ensure that all
 The project is divided into several modules which are separated by channels. Each module runs in its own routine. This enables a clean separation of responsibilities. The diagram below shows which modules exist and how they interact with each other.
 
 ![Modules](https://github.com/user-attachments/assets/86796711-9c2b-4447-bbf8-c36a1185ea02)
+
+## Local Testing
+To manually test multiple elevators locally follow theses steps:
+1. Make sure to have xterm installed
+2. Start the local_sim_testing.bash script included in the repository
