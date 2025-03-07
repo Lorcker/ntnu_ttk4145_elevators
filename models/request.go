@@ -32,10 +32,10 @@ type Id uint8
 type RequestStatus int
 
 const (
-	Absent RequestStatus = iota
+	Unknown RequestStatus = iota
+	Absent
 	Unconfirmed
 	Confirmed
-	Unknown
 )
 
 func NewHallRequestMsg(peer Id, floor int, buttonType ButtonType, status RequestStatus) RequestMessage {
