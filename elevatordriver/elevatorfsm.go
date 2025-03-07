@@ -19,13 +19,11 @@ func onInitBetweenFloors() {
 	elevatorio.SetMotorDirection(0)
 }
 
-func initElevator(orders models.Orders) {
+func initElevator() {
 	onInitBetweenFloors()
-	setAllElevatorLights(orders)
 }
 
 func HandleOrderEvent(elevator *models.ElevatorState, orders models.Orders, recieverDoorTimer chan<- bool, resolvedRequests chan<- models.RequestMessage) {
-	setAllElevatorLights(orders)
 	switch elevator.Behavior {
 	case models.Idle:
 		RequestChooseDirection(elevator, orders, recieverDoorTimer) // Updates the elevator states if new orders are in
@@ -62,7 +60,6 @@ func HandleFloorsensorEvent(elevator *models.ElevatorState, orders models.Orders
 			elevatorio.SetMotorDirection((0))
 			elevatorio.SetDoorOpenLamp(true)
 			RequestClearAtCurrentFloor(*elevator, &orders, resolvedRequests)
-			setAllElevatorLights(orders)
 			recieverDoorTimer <- true
 		}
 	default:
@@ -84,11 +81,9 @@ func HandleDoorTimerEvent(elevator *models.ElevatorState, orders models.Orders, 
 		case models.DoorOpen:
 			recieverDoorTimer <- true
 			RequestClearAtCurrentFloor(*elevator, &orders, resolvedRequests)
-			setAllElevatorLights(orders)
 
 		case models.Moving, models.Idle:
 			elevatorio.SetDoorOpenLamp(false)
-			setAllElevatorLights(orders)
 			elevatorio.SetMotorDirection(elevator.Direction)
 		}
 
@@ -302,18 +297,6 @@ func RequestShouldClearImmediatly(e models.ElevatorState, orders models.Orders) 
 			}
 		default:
 			return false
-		}
-	}
-}
-
-func setAllElevatorLights(orders models.Orders) {
-	for i := 0; i < len(orders); i++ {
-		for j := 0; j < len(orders[i]); j++ {
-			if orders[i][j] {
-				elevatorio.SetButtonLamp(models.ButtonType(j), i, true)
-			} else {
-				elevatorio.SetButtonLamp(models.ButtonType(j), i, false)
-			}
 		}
 	}
 }
