@@ -10,7 +10,7 @@ func TestRequestManager_OnePeerCycle(t *testing.T) {
 	// Test that the request manager processes a cycle of messages from one peer
 
 	// Setup
-	var rm = newRequestManager()
+	var rm = newRequestManager(m.Id(0))
 	rm.alivePeers = []m.Id{1}
 	var request = m.Request{Origin: m.Origin{Source: m.Hall{}, Floor: 1, ButtonType: m.HallUp}, Status: m.Unknown}
 	var msg = m.RequestMessage{Source: 1, Request: request}
@@ -53,7 +53,7 @@ func TestRequestManager_OnePeerFirstUnconfirmed(t *testing.T) {
 	// Test that the request manager processes a unconfirmed request from one peer wihout a previous request correctly
 
 	// Setup
-	var rm = newRequestManager()
+	var rm = newRequestManager(m.Id(0))
 	rm.alivePeers = []m.Id{1}
 	var request = m.Request{Origin: m.Origin{Source: m.Hall{}, Floor: 1, ButtonType: m.HallUp}, Status: m.Unknown}
 	var msg = m.RequestMessage{Source: 1, Request: request}
@@ -81,7 +81,7 @@ func TestRequestManager_TwoPeerCycle(t *testing.T) {
 	// Test that the request manager processes a cycle of messages from two peers
 
 	// Setup
-	var rm = newRequestManager()
+	var rm = newRequestManager(m.Id(0))
 	rm.alivePeers = []m.Id{1, 2}
 	var request = m.Request{Origin: m.Origin{Source: m.Hall{}, Floor: 1, ButtonType: m.HallUp}, Status: m.Unknown}
 	var msg1 = m.RequestMessage{Source: 1, Request: request}
