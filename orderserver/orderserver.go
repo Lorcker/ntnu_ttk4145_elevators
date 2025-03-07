@@ -44,12 +44,12 @@ func RunOrderServer(
 	for {
 		select {
 		case r := <-validatedRequests:
-			log.Printf("[orderserver] Received validated request: %v", r)
-
 			if r.Status == models.Unconfirmed || r.Status == models.Unknown {
 				// These are not relevant for the order sever
 				continue
 			}
+
+			log.Printf("[orderserver] Received validated request: %v", r)
 
 			status := r.Status == models.Confirmed // convert the status to a boolean
 
