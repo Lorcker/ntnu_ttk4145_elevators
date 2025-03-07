@@ -1,6 +1,7 @@
 package comms
 
 import (
+	"fmt"
 	"log"
 	"strconv"
 	"time"
@@ -51,8 +52,14 @@ func RunComms(
 			}
 
 		case r := <-fromRequests:
-			log.Printf("[comms] Received new validated request from [requests]: %v", r)
+			before := fmt.Sprintf("%v", registry)
+
 			registry.Update(r)
+
+			after := fmt.Sprintf("%v", registry)
+			if before != after {
+				log.Printf("[comms] Updated registry after getting msg from [requests]:\n\tRequest: %v\n\tBefore: %v\n\tAfter: %v", r, before, after)
+			}
 
 		case <-sendTicker.C:
 			u := udpMessage{
@@ -72,7 +79,7 @@ func RunComms(
 
 			changedRequests := registry.Diff(msg.Source, msg.Registry)
 			if len(changedRequests) > 0 {
-				log.Printf("[comms] received a external registry from peer %d that changed requests: %v", msg.Source, changedRequests)
+				log.Printf("[comms] Received an external registry that changed state:\n\tFromPeer: %d\n\tChangedReqs: %v\n\tInternalRegistry:%v\n\tExternalRegistry:%v", msg.Source, changedRequests, registry, msg.Registry)
 			}
 			for _, r := range changedRequests {
 				toRequest <- r

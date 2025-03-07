@@ -3,6 +3,7 @@ package requests
 import (
 	"log"
 
+	"group48.ttk4145.ntnu/elevators/elevatorio"
 	m "group48.ttk4145.ntnu/elevators/models"
 )
 
@@ -18,8 +19,8 @@ func RunRequestServer(
 		select {
 		case msg := <-incomingRequests:
 			log.Printf("[requests] Received request: %v", msg.Request)
-
 			r := requestManager.process(msg)
+			setButtonLighting(local, msg.Request)
 			log.Printf("[requests] Processed request: %v", r)
 			for _, s := range subscribers {
 				s <- r
@@ -30,6 +31,15 @@ func RunRequestServer(
 			requestManager.alivePeers = alivePeers
 		}
 	}
+}
+
+func setButtonLighting(local m.Id, req m.Request) {
+	if elevator, ok := req.Origin.Source.(m.Elevator); ok && elevator.Id != local {
+		return // Lighting does not concern this elevator
+	}
+	targetState := req.Status == m.Confirmed || !(req.Status == m.Absent)
+
+	elevatorio.SetButtonLamp(req.Origin.ButtonType, req.Origin.Floor, targetState)
 }
 
 type requestManager struct {
@@ -62,9 +72,22 @@ func (rm *requestManager) process(msg m.RequestMessage) m.Request {
 		return rm.processUnconfirmed(msg)
 	case m.Confirmed:
 		return rm.processConfirmed(msg)
+	case m.Unknown:
+		fallthrough
 	default:
+		return rm.processUnknown(msg)
+	}
+
+}
+
+func (rm *requestManager) processUnknown(msg m.RequestMessage) m.Request {
+	if msg.Request.Status != m.Unknown {
 		return msg.Request
 	}
+
+	storedRequest := rm.store[msg.Request.Origin]
+
+	return storedRequest
 }
 
 func (rm *requestManager) processAbsent(msg m.RequestMessage) m.Request {
@@ -125,8 +148,12 @@ func (rm *requestManager) processConfirmed(msg m.RequestMessage) m.Request {
 	}
 
 	storedRequest := rm.store[msg.Request.Origin]
-	storedRequest.Status = m.Confirmed
 
+	if storedRequest.Status != m.Unconfirmed {
+		return storedRequest
+	}
+
+	storedRequest.Status = m.Confirmed
 	rm.store[msg.Request.Origin] = storedRequest
 	return storedRequest
 }
