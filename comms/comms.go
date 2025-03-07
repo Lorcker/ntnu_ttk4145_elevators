@@ -2,72 +2,191 @@ package comms
 
 import (
 	"log"
-	"net"
+	"strconv"
 	"time"
 
-	"group48.ttk4145.ntnu/elevators/models"
+	"Network-go/network/bcast"
+
+	m "group48.ttk4145.ntnu/elevators/models"
 )
 
 const SendInterval = time.Millisecond * 100
-const BroadcastAddr = "255.255.255.255"
+
+type udpMessage struct {
+	Source   m.Id
+	Registry RequestRegistry
+	EState   m.ElevatorState
+}
 
 // # RunComms runs the communication module
 //
 // It listens for updates on the local elevator state and validated requests channels.
-// It send UDP messages with the local elevator state and validated requests to the broadcast address in a regular interval.
-// It listens for incoming UDP messages and sends the elevator state and requests to the outgoing channels.
+// It send UDP messages with the local elevator state and all system requests to the broadcast address in a regular interval.
+// It listens for incoming UDP messages and sends the elevator state and changed requests to the outgoing channels.
 // It sends a health monitor ping on the health monitor ping channel when it receives an update from the local elevator state or validated requests channels.
 func RunComms(
-	localPeer models.Id,
-	local net.IPAddr,
-	port uint16,
-	localElevatorUpdates <-chan models.ElevatorState,
-	internalValidatedRequests <-chan models.Request,
-	outgoingEStatesUpdates chan<- models.ElevatorState,
-	outgoingUnvalidatedRequests chan<- models.RequestMessage,
-	healthMonitorPing chan<- models.Id) {
-	var validatedRequestsBuffer = make(map[models.Origin]models.Request)
-	var internalEState models.ElevatorState
+	local m.Id,
+	port int,
+	fromDriver <-chan m.ElevatorState,
+	fromRequests <-chan m.Request,
+	toOrders chan<- m.ElevatorState,
+	toRequest chan<- m.RequestMessage,
+	toHealthMonitor chan<- m.Id) {
+
 	var sendTicker = time.NewTicker(SendInterval)
+	var internalEs m.ElevatorState
+	var registry = NewRequestRegistry()
 
-	var receiveUdp = make(chan udpMessage)
-	ra := net.UDPAddr{IP: local.IP, Port: int(port)}
-	go RunUdpReader(receiveUdp, ra)
-
-	var sendUdp = make(chan udpMessage)
-	sa := net.UDPAddr{IP: net.ParseIP(BroadcastAddr), Port: int(port)}
-	go RunUdpWriter(sendUdp, sa)
+	sendUdp := make(chan udpMessage)
+	receiveUdp := make(chan udpMessage)
+	go bcast.Transmitter(port, sendUdp)
+	go bcast.Receiver(port, receiveUdp)
 
 	for {
 		select {
-		case eState := <-localElevatorUpdates:
-			log.Printf("[comms] Received local elevator state update: %v", eState)
-			internalEState = eState
-		case request := <-internalValidatedRequests:
-			log.Printf("[comms] Received validated request: %v", request)
-			validatedRequestsBuffer[request.Origin] = request
+		case es := <-fromDriver:
+			if internalEs != es {
+				log.Printf("[comms] Received new local elevator state update from [driver]: %v", es)
+				internalEs = es
+			}
+
+		case r := <-fromRequests:
+			log.Printf("[comms] Received new validated request from [requests]: %v", r)
+			registry.Update(r)
+
 		case <-sendTicker.C:
-			u := udpMessage{Source: localPeer, EState: internalEState, Requests: convert(validatedRequestsBuffer)}
+			u := udpMessage{
+				Source:   local,
+				Registry: registry,
+				EState:   internalEs,
+			}
 			sendUdp <- u
+
 		case msg := <-receiveUdp:
-			if msg.Source == localPeer {
+			if msg.Source == local {
 				continue
 			}
 
-			healthMonitorPing <- msg.Source
-			outgoingEStatesUpdates <- msg.EState
-			for _, r := range msg.Requests {
-				outgoingUnvalidatedRequests <- models.RequestMessage{Source: msg.Source, Request: r}
+			toHealthMonitor <- msg.Source
+			toOrders <- msg.EState
+
+			changedRequests := registry.Diff(msg.Source, msg.Registry)
+			if len(changedRequests) > 0 {
+				log.Printf("[comms] received a external registry from peer %d that changed requests: %v", msg.Source, changedRequests)
+			}
+			for _, r := range changedRequests {
+				toRequest <- r
 			}
 		}
 	}
+
 }
 
-// convert converts a map of requests to a slice of requests
-func convert(m map[models.Origin]models.Request) []models.Request {
-	var requests = make([]models.Request, 0)
-	for _, r := range m {
-		requests = append(requests, r)
+// The RequestRegistry holds information about all system requests.
+// It is needed as every sending cycle of comms must propagate all system request to other peers.
+// The internal system work with sending messaged on change.
+// This does not work for comms as packet loss is guaranteed to happen so changes might get lost.
+// Thus the registry stores the change and can calculate the diff between two registries to
+// enable the conversion back to the internal messaging model.
+// Also, in case one elevator dies, the information is backed up here.
+type RequestRegistry struct {
+	HallUp   [m.NumFloors]m.RequestStatus
+	HallDown [m.NumFloors]m.RequestStatus
+
+	// Map uses the id of the elevator as key
+	// Is a string because the json conversion of network module only allows for strings
+	Cab map[string][m.NumFloors]m.RequestStatus
+}
+
+func NewRequestRegistry() RequestRegistry {
+	hu := [m.NumFloors]m.RequestStatus{}
+	hd := [m.NumFloors]m.RequestStatus{}
+	c := make(map[string][m.NumFloors]m.RequestStatus)
+
+	for i := m.Floor(0); i < m.NumFloors; i++ {
+		hu[i] = m.Unknown
+		hd[i] = m.Unknown
 	}
-	return requests
+
+	return RequestRegistry{
+		HallUp:   hu,
+		HallDown: hd,
+		Cab:      c,
+	}
+}
+
+// Adds a new cab to the registry
+func (r *RequestRegistry) InitNewCab(id string) {
+	cab := [m.NumFloors]m.RequestStatus{}
+	for i := m.Floor(0); i < m.NumFloors; i++ {
+		cab[i] = m.Unknown
+	}
+
+	r.Cab[id] = cab
+}
+
+// Update takes in a internal msg from the request module and replaces the stored information
+// As the msg were validated by the request module no checks on the status information are needed
+func (r *RequestRegistry) Update(req m.Request) {
+	floor := req.Origin.Floor
+
+	switch req.Origin.ButtonType {
+	case m.HallUp:
+		r.HallUp[floor] = req.Status
+	case m.HallDown:
+		r.HallDown[floor] = req.Status
+	case m.Cab:
+		id := req.Origin.Source.(m.Elevator).Id
+		idS := strconv.Itoa(int(id))
+
+		// Check is needed because if comms get info about an elevator it has not seen before
+		// it need to adds to the registry and keep it there
+		if _, ok := r.Cab[idS]; !ok {
+			r.InitNewCab(idS)
+		}
+
+		// Reassign updated slice to map as no direct update is possible in Go
+		cabRequests := r.Cab[idS]
+		cabRequests[floor] = req.Status
+		r.Cab[idS] = cabRequests
+	}
+}
+
+// Diff calculates the difference between two registries
+// and returns a slice of requestMessage where each represents a differing entry
+func (r *RequestRegistry) Diff(peer m.Id, other RequestRegistry) []m.RequestMessage {
+	var diff []m.RequestMessage
+
+	for f := m.Floor(0); f < m.NumFloors; f++ {
+		if other.HallUp[f] != r.HallUp[f] {
+			diff = append(diff, m.NewHallRequestMsg(peer, int(f), m.HallUp, other.HallUp[f]))
+		}
+		if other.HallDown[f] != r.HallDown[f] {
+			diff = append(diff, m.NewHallRequestMsg(peer, int(f), m.HallDown, other.HallDown[f]))
+		}
+	}
+
+	for id, otherCab := range other.Cab {
+		localCab, ok := r.Cab[id]
+		idI, err := strconv.Atoi(id)
+
+		if err != nil {
+			log.Fatalf("[comms] failed to convert stored elevator id string to its uint: %e", err)
+		}
+
+		if !ok {
+			for f := m.Floor(0); f < m.NumFloors; f++ {
+				diff = append(diff, m.NewCabRequestMsg(peer, m.Id(idI), int(f), otherCab[f]))
+			}
+			continue
+		}
+
+		for f := m.Floor(0); f < m.NumFloors; f++ {
+			if otherCab[f] != localCab[f] {
+				diff = append(diff, m.NewCabRequestMsg(peer, m.Id(idI), int(f), otherCab[f]))
+			}
+		}
+	}
+
+	return diff
 }

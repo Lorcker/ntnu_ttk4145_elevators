@@ -18,24 +18,37 @@ type lastSeen = map[models.Id]time.Time
 // RunMonitor runs the health monitor. It listens for pings from the elevators
 // and tracks which elevators are alive.
 func RunMonitor(
-	ping <-chan models.Id,
-	alive chan<- []models.Id,
-	local models.Id) {
+	local models.Id,
+	pingFromComms <-chan models.Id,
+	alivenessToRequests chan<- []models.Id,
+	alivenessToOrders chan<- []models.Id) {
 
 	var lastSeen = make(lastSeen)
+	var lastAlive = make([]models.Id, 0)
+
 	ticker := time.NewTicker(PollInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case id := <-ping:
-			log.Printf("[healthmonitor] Received ping from %v", id)
+		case id := <-pingFromComms:
+			if _, ok := lastSeen[id]; !ok {
+				log.Printf("[healthmonitor] A new pear is alive %v", id)
+			}
 			lastSeen[id] = time.Now()
 		case <-ticker.C:
 			a := getAlive(lastSeen)
 			a = append(a, local) // The local elevator is always alive
-			log.Printf("[healthmonitor] Sent alive status: %v", a)
-			alive <- a
+			if slicesEqual(lastAlive, a) {
+				// Send no msg if new information is present
+				continue
+			}
+
+			log.Printf("[healthmonitor] Notifying [orders] and [requests] that he alive list changed: %v", a)
+			alivenessToOrders <- a
+			alivenessToRequests <- a
+
+			lastAlive = a
 		}
 	}
 }
@@ -48,4 +61,16 @@ func getAlive(ls lastSeen) []models.Id {
 		}
 	}
 	return a
+}
+
+func slicesEqual(a, b []models.Id) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

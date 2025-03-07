@@ -46,6 +46,11 @@ func RunOrderServer(
 		case r := <-validatedRequests:
 			log.Printf("[orderserver] Received validated request: %v", r)
 
+			if r.Status == models.Unconfirmed || r.Status == models.Unknown {
+				// These are not relevant for the order sever
+				continue
+			}
+
 			status := r.Status == models.Confirmed // convert the status to a boolean
 
 			if len(elevators.states) > 0 {
@@ -58,9 +63,12 @@ func RunOrderServer(
 
 				// calculates the optimal orders for the elevators
 				order := optimalHallRequests(elevators)[localPeerId]
-				log.Printf("[orderserver] Turned requests into order: %v", order)
+				if len(order) == 0 {
+					break
+				}
+
+				log.Printf("[orderserver] Started sending new Orders to [driver]: %v", order)
 				orders <- order
-				log.Printf("[orderserver] Send order to channel: %v", order)
 			}
 
 		// handle the alive channel
@@ -83,14 +91,14 @@ func RunOrderServer(
 			}
 
 		case newState := <-state:
-			log.Printf("[orderserver] Received elevator state: %v", newState)
-
-			if _, ok := elevators.states[newState.Id]; !ok {
-				// if the elevator is not in the states map, add it
+			currentState, ok := elevators.states[newState.Id]
+			if !ok {
 				elevators.states[newState.Id] = elevatorstate{ElevatorState: newState, cabRequests: make([]bool, numFloors)}
-			} else {
-				// if the elevator is in the states map, update the state but keep the cabRequests
-				currentState := elevators.states[newState.Id]
+				log.Printf("[orderserver] Added a new elevator to internal memory with state: %v", newState)
+				break
+			}
+			if currentState.ElevatorState != newState {
+				log.Printf("[orderserver] Updated buffered elevator state from %v to %v", currentState.ElevatorState, newState)
 				currentState.ElevatorState = newState
 				elevators.states[newState.Id] = currentState
 			}

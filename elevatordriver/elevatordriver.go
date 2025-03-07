@@ -62,10 +62,8 @@ func Starter(pollObstructionSwitch <-chan bool,
 			}
 		case <-tickerSendElevatorState.C:
 			for _, ch := range receiver {
-				log.Printf("[elevatordriver] Sending elevator state to a receiver: %v", elevator)
 				ch <- elevator
 			}
-			log.Printf("[elevatordriver] Sent elevator state to receivers: %v", elevator)
 		}
 	}
 }

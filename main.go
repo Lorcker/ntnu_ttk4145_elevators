@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"log"
-	"net"
 	"os"
 
 	"group48.ttk4145.ntnu/elevators/comms"
@@ -26,9 +25,9 @@ func main() {
 	}
 
 	// Elevator IO module initialization
-	var unvalidatedRequests = make(chan models.RequestMessage, 10) // Buffered channel
-	var floorSensorUpdates = make(chan int, 10)                    // Buffered channel
-	var obstructionSwitchUpdates = make(chan bool, 10)             // Buffered channel
+	var unvalidatedRequests = make(chan models.RequestMessage, 10)
+	var floorSensorUpdates = make(chan int, 10)
+	var obstructionSwitchUpdates = make(chan bool, 10)
 
 	elevatorio.Init(config.ElevatorAddr, config.NumFloors, models.Id(config.LocalPeerId))
 	go elevatorio.PollRequests(unvalidatedRequests)
@@ -36,9 +35,9 @@ func main() {
 	go elevatorio.PollObstructionSwitch(obstructionSwitchUpdates)
 
 	// Elevator Driver module initialization
-	var orders = make(chan models.Orders, 10)                              // Buffered channel
-	var internalElevatorStateToComms = make(chan models.ElevatorState, 10) // Buffered channel
-	var elevatorStatesToOrders = make(chan models.ElevatorState, 10)       // Buffered channel
+	var orders = make(chan models.Orders, 10)
+	var internalElevatorStateToComms = make(chan models.ElevatorState, 10)
+	var elevatorStatesToOrders = make(chan models.ElevatorState, 10)
 	var internalElevatorState = make([]chan<- models.ElevatorState, 2)
 	internalElevatorState[0] = internalElevatorStateToComms
 	internalElevatorState[1] = elevatorStatesToOrders
@@ -51,25 +50,29 @@ func main() {
 		models.Id(config.LocalPeerId))
 
 	// Order module initialization
-	var aliveStatus = make(chan []models.Id, 10)                 // Buffered channel
-	var validatedRequestsToOrder = make(chan models.Request, 10) // Buffered channel
+	var aliveStatusOrders = make(chan []models.Id, 10)
+	var validatedRequestsToOrder = make(chan models.Request, 10)
 	go orderserver.RunOrderServer(
 		validatedRequestsToOrder,
 		elevatorStatesToOrders,
-		aliveStatus,
+		aliveStatusOrders,
 		orders,
 		models.Id(config.LocalPeerId))
 
 	// Health monitor module initialization
-	var ping = make(chan models.Id, 10) // Buffered channel
-	go healthmonitor.RunMonitor(ping, aliveStatus, models.Id(config.LocalPeerId))
+	var ping = make(chan models.Id, 10)
+	var alivenessToRequests = make(chan []models.Id, 10)
+	go healthmonitor.RunMonitor(
+		models.Id(config.LocalPeerId),
+		ping,
+		alivenessToRequests,
+		aliveStatusOrders)
 
 	// Comms module initialization
-	var internalValidatedRequestsToComms = make(chan models.Request, 10) // Buffered channel
+	var internalValidatedRequestsToComms = make(chan models.Request, 10)
 
 	go comms.RunComms(
 		models.Id(config.LocalPeerId),
-		net.IPAddr{IP: net.ParseIP(config.LocalAddr)},
 		config.LocalPort,
 		internalElevatorStateToComms,
 		internalValidatedRequestsToComms,
@@ -82,8 +85,9 @@ func main() {
 	validatedRequests[0] = validatedRequestsToOrder
 	validatedRequests[1] = internalValidatedRequestsToComms
 	go requests.RunRequestServer(
+		models.Id(config.LocalPeerId),
 		unvalidatedRequests,
-		aliveStatus,
+		alivenessToRequests,
 		validatedRequests)
 
 	select {}
@@ -94,7 +98,7 @@ type Config struct {
 	NumFloors    int    `json:"num_floors"`
 	LocalPeerId  int    `json:"local_peer_id"`
 	LocalAddr    string `json:"local_addr"`
-	LocalPort    uint16 `json:"local_port"`
+	LocalPort    int    `json:"local_port"`
 }
 
 func LoadConfig(filename string) (*Config, error) {
