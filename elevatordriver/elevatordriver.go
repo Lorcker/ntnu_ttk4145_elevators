@@ -9,7 +9,7 @@ import (
 
 // Global variables
 var doorTimerDuration = 3
-var elevatorStatePollRate = time.Second * 3
+var elevatorStatePollRate = time.Millisecond * 100
 var NButtons int = 3
 var NFloors int = 4
 
