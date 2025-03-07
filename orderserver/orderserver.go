@@ -88,14 +88,14 @@ func RunOrderServer(
 			}
 
 		case newState := <-state:
-			log.Printf("[orderserver] Received elevator state: %v", newState)
-
-			if _, ok := elevators.states[newState.Id]; !ok {
-				// if the elevator is not in the states map, add it
+			currentState, ok := elevators.states[newState.Id]
+			if !ok {
 				elevators.states[newState.Id] = elevatorstate{ElevatorState: newState, cabRequests: make([]bool, numFloors)}
-			} else {
-				// if the elevator is in the states map, update the state but keep the cabRequests
-				currentState := elevators.states[newState.Id]
+				log.Printf("[orderserver] Added a new elevator to internal memory with state: %v", newState)
+				break
+			}
+			if currentState.ElevatorState != newState {
+				log.Printf("[orderserver] Updated buffered elevator state from %v to %v", currentState.ElevatorState, newState)
 				currentState.ElevatorState = newState
 				elevators.states[newState.Id] = currentState
 			}

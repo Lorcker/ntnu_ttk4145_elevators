@@ -45,8 +45,10 @@ func RunComms(
 	for {
 		select {
 		case es := <-fromDriver:
-			log.Printf("[comms] Received local elevator state update from [driver]: %v", es)
-			internalEs = es
+			if internalEs != es {
+				log.Printf("[comms] Received new local elevator state update from [driver]: %v", es)
+				internalEs = es
+			}
 
 		case r := <-fromRequests:
 			log.Printf("[comms] Received new validated request from [requests]: %v", r)
@@ -65,11 +67,13 @@ func RunComms(
 				continue
 			}
 
-			log.Printf("[comms] Received new UDP msg from peer: %v", msg)
 			toHealthMonitor <- msg.Source
 			toOrders <- msg.EState
 
 			changedRequests := registry.Diff(msg.Source, msg.Registry)
+			if len(changedRequests) > 0 {
+				log.Printf("[comms] received a external registry from peer %d that changed requests: %v", msg.Source, changedRequests)
+			}
 			for _, r := range changedRequests {
 				toRequest <- r
 			}
