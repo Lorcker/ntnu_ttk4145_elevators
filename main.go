@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"log"
-	"net"
 	"os"
 
 	"group48.ttk4145.ntnu/elevators/comms"
@@ -69,7 +68,6 @@ func main() {
 
 	go comms.RunComms(
 		models.Id(config.LocalPeerId),
-		net.IPAddr{IP: net.ParseIP(config.LocalAddr)},
 		config.LocalPort,
 		internalElevatorStateToComms,
 		internalValidatedRequestsToComms,
@@ -94,7 +92,7 @@ type Config struct {
 	NumFloors    int    `json:"num_floors"`
 	LocalPeerId  int    `json:"local_peer_id"`
 	LocalAddr    string `json:"local_addr"`
-	LocalPort    uint16 `json:"local_port"`
+	LocalPort    int    `json:"local_port"`
 }
 
 func LoadConfig(filename string) (*Config, error) {

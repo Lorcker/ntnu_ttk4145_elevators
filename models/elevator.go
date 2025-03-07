@@ -1,5 +1,9 @@
 package models
 
+type Floor uint8
+
+const NumFloors Floor = 4
+
 type ElevatorState struct {
 	Id        Id
 	Floor     int

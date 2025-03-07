@@ -24,14 +24,13 @@ ELEVATOR_PROGRAM="main.go"
 
 # Define base ports for the simulator and the Go program
 SIMULATOR_BASE_PORT=5000
-GO_BASE_PORT=6000
+GO_PORT=6000
 
 # Define configuration templates
 CONFIG_TEMPLATE='{
     "elevator_addr": "localhost:%d",
     "num_floors": 4,
     "local_peer_id": %d,
-    "local_addr": "localhost",
     "local_port": %d
 }'
 
@@ -58,7 +57,6 @@ trap cleanup INT
 # Create configuration files and start instances
 for i in {1..2}; do
     SIMULATOR_PORT=$((SIMULATOR_BASE_PORT + i))
-    GO_PORT=$((GO_BASE_PORT + i))
     CONFIG_FILE="config_$i.json"
 
     # Create configuration file

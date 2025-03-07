@@ -37,3 +37,31 @@ const (
 	Confirmed
 	Unknown
 )
+
+func NewHallRequestMsg(peer Id, floor int, buttonType ButtonType, status RequestStatus) RequestMessage {
+	return RequestMessage{
+		Source: peer,
+		Request: Request{
+			Origin: Origin{
+				Source:     Hall{},
+				Floor:      floor,
+				ButtonType: buttonType,
+			},
+			Status: status,
+		},
+	}
+}
+
+func NewCabRequestMsg(peer Id, elevator Id, floor int, status RequestStatus) RequestMessage {
+	return RequestMessage{
+		Source: peer,
+		Request: Request{
+			Origin: Origin{
+				Source:     Elevator{Id: elevator},
+				Floor:      floor,
+				ButtonType: Cab,
+			},
+			Status: status,
+		},
+	}
+}
