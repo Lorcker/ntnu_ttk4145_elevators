@@ -85,6 +85,7 @@ func main() {
 	validatedRequests[0] = validatedRequestsToOrder
 	validatedRequests[1] = internalValidatedRequestsToComms
 	go requests.RunRequestServer(
+		models.Id(config.LocalPeerId),
 		unvalidatedRequests,
 		alivenessToRequests,
 		validatedRequests)

@@ -7,11 +7,12 @@ import (
 )
 
 func RunRequestServer(
+	local m.Id,
 	incomingRequests <-chan m.RequestMessage,
 	peerStatus <-chan []m.Id,
 	subscribers []chan<- m.Request) {
 
-	var requestManager = newRequestManager()
+	var requestManager = newRequestManager(local)
 
 	for {
 		select {
@@ -32,15 +33,19 @@ func RunRequestServer(
 }
 
 type requestManager struct {
-	store      map[m.Origin]m.Request
-	ledgers    map[m.Origin][]m.Id
+	local m.Id
+
+	store   map[m.Origin]m.Request
+	ledgers map[m.Origin]map[m.Id]bool
+
 	alivePeers []m.Id
 }
 
-func newRequestManager() *requestManager {
+func newRequestManager(local m.Id) *requestManager {
 	return &requestManager{
+		local:      local,
 		store:      make(map[m.Origin]m.Request),
-		ledgers:    make(map[m.Origin][]m.Id),
+		ledgers:    make(map[m.Origin]map[m.Id]bool),
 		alivePeers: make([]m.Id, 0),
 	}
 }
@@ -81,7 +86,13 @@ func (rm *requestManager) processUnconfirmed(msg m.RequestMessage) m.Request {
 		return msg.Request
 	}
 
-	ledgers := rm.ledgers[msg.Request.Origin]
+	ledgers, ok := rm.ledgers[msg.Request.Origin]
+	if !ok {
+		// Origin was not stored before and needs be initialized
+		ledgers = make(map[m.Id]bool)
+		rm.ledgers[msg.Request.Origin] = ledgers
+	}
+
 	storedRequest := rm.store[msg.Request.Origin]
 
 	switch storedRequest.Status {
@@ -90,12 +101,14 @@ func (rm *requestManager) processUnconfirmed(msg m.RequestMessage) m.Request {
 	case m.Absent:
 		fallthrough
 	case m.Unconfirmed:
-		ledgers = append(ledgers, msg.Source)
+		ledgers[rm.local] = true
+		ledgers[msg.Source] = true
 
-		isConfirmed := isSetEqual(ledgers, rm.alivePeers)
+		isConfirmed := isConfirmed(ledgers, rm.alivePeers)
 		if isConfirmed {
 			storedRequest.Status = m.Confirmed
-			ledgers = make([]m.Id, 0)
+			// Reset ledgers
+			ledgers = make(map[m.Id]bool)
 		} else {
 			storedRequest.Status = m.Unconfirmed
 		}

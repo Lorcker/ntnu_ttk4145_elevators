@@ -10,7 +10,7 @@ import (
 	m "group48.ttk4145.ntnu/elevators/models"
 )
 
-const SendInterval = time.Millisecond * 1000
+const SendInterval = time.Millisecond * 100
 
 type udpMessage struct {
 	Source   m.Id

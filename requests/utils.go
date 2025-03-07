@@ -2,25 +2,16 @@ package requests
 
 import m "group48.ttk4145.ntnu/elevators/models"
 
-func isSetEqual(a, b []m.Id) bool {
-	if len(a) != len(b) {
+func isConfirmed(ledgers map[m.Id]bool, alive []m.Id) bool {
+	if len(ledgers) != len(alive) {
 		return false
 	}
 
-	for _, id := range a {
-		if !contains(b, id) {
+	for _, id := range alive {
+		if _, ok := ledgers[id]; !ok {
 			return false
 		}
 	}
 
 	return true
-}
-
-func contains(s []m.Id, e m.Id) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
 }

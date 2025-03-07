@@ -63,9 +63,12 @@ func RunOrderServer(
 
 				// calculates the optimal orders for the elevators
 				order := optimalHallRequests(elevators)[localPeerId]
-				log.Printf("[orderserver] Turned requests into order: %v", order)
+				if len(order) == 0 {
+					break
+				}
+
+				log.Printf("[orderserver] Started sending new Orders to [driver]: %v", order)
 				orders <- order
-				log.Printf("[orderserver] Send order to channel: %v", order)
 			}
 
 		// handle the alive channel
