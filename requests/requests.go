@@ -148,8 +148,12 @@ func (rm *requestManager) processConfirmed(msg m.RequestMessage) m.Request {
 	}
 
 	storedRequest := rm.store[msg.Request.Origin]
-	storedRequest.Status = m.Confirmed
 
+	if storedRequest.Status != m.Unconfirmed {
+		return storedRequest
+	}
+
+	storedRequest.Status = m.Confirmed
 	rm.store[msg.Request.Origin] = storedRequest
 	return storedRequest
 }
