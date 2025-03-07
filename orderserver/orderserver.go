@@ -46,6 +46,11 @@ func RunOrderServer(
 		case r := <-validatedRequests:
 			log.Printf("[orderserver] Received validated request: %v", r)
 
+			if r.Status == models.Unconfirmed || r.Status == models.Unknown {
+				// These are not relevant for the order sever
+				continue
+			}
+
 			status := r.Status == models.Confirmed // convert the status to a boolean
 
 			if len(elevators.states) > 0 {
