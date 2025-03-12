@@ -28,8 +28,8 @@ func Test_calculateOrders(t *testing.T) {
 					[2]bool{false, true},
 				},
 				cr: map[m.Id]CabRequests{
-					1: [4]bool{true, false, true, false},
-					2: [4]bool{false, true, false, true},
+					1: []bool{true, false, true, false},
+					2: []bool{false, true, false, true},
 				},
 				elevators: map[m.Id]m.ElevatorState{
 					1: {

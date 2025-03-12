@@ -17,19 +17,19 @@ func TestRegistryDiff(t *testing.T) {
 		{
 			name: "Discovered bug 1",
 			internal: RequestRegistry{
-				HallUp:   [4]models.RequestStatus{0, 1, 1, 1},
-				HallDown: [4]models.RequestStatus{0, 1, 1, 1},
-				Cab: map[string][4]models.RequestStatus{
-					"1": [4]models.RequestStatus{0, 1, 1, 0},
-					"2": [4]models.RequestStatus{0, 1, 1, 1},
+				HallUp:   []models.RequestStatus{0, 1, 1, 1},
+				HallDown: []models.RequestStatus{0, 1, 1, 1},
+				Cab: map[string][]models.RequestStatus{
+					"1": []models.RequestStatus{0, 1, 1, 0},
+					"2": []models.RequestStatus{0, 1, 1, 1},
 				},
 			},
 			external: RequestRegistry{
-				HallUp:   [4]models.RequestStatus{0, 3, 1, 1},
-				HallDown: [4]models.RequestStatus{0, 1, 1, 1},
-				Cab: map[string][4]models.RequestStatus{
-					"1": [4]models.RequestStatus{0, 0, 1, 0},
-					"2": [4]models.RequestStatus{0, 1, 1, 1},
+				HallUp:   []models.RequestStatus{0, 3, 1, 1},
+				HallDown: []models.RequestStatus{0, 1, 1, 1},
+				Cab: map[string][]models.RequestStatus{
+					"1": []models.RequestStatus{0, 0, 1, 0},
+					"2": []models.RequestStatus{0, 1, 1, 1},
 				},
 			},
 			peer: 2,

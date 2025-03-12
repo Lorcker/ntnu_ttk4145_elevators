@@ -2,7 +2,7 @@ package models
 
 type Floor uint8
 
-const NumFloors Floor = 4
+var NumFloors Floor = 4
 
 type ElevatorState struct {
 	Id        Id
@@ -19,7 +19,8 @@ const (
 	Moving
 )
 
-type Orders [NumFloors][3]bool
+// Orders is a 2D array of bools, where the first dimension is the floor and the second dimension is the button type.
+type Orders [][3]bool
 
 type MotorDirection int
 

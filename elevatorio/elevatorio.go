@@ -13,17 +13,16 @@ import (
 const _pollRate = 20 * time.Millisecond
 
 var _initialized bool = false
-var _numFloors int = 4
+var _numFloors int = int(models.NumFloors)
 var _mtx sync.Mutex
 var _conn net.Conn
 var _Id models.Id
 
-func Init(addr string, numFloors int, local models.Id) {
+func Init(addr string, local models.Id) {
 	if _initialized {
 		fmt.Println("Driver already initialized!")
 		return
 	}
-	_numFloors = numFloors
 	_Id = local
 	_mtx = sync.Mutex{}
 	var err error

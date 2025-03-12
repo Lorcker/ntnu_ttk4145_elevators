@@ -8,7 +8,6 @@ import (
 
 	"Network-go/network/bcast"
 
-	"group48.ttk4145.ntnu/elevators/models"
 	m "group48.ttk4145.ntnu/elevators/models"
 )
 
@@ -47,7 +46,7 @@ func RunComms(
 	for {
 		select {
 		case es := <-fromDriver:
-			if !models.IsEStateEqual(internalEs, es) {
+			if !m.IsEStateEqual(internalEs, es) {
 				log.Printf("[comms] Received new local elevator state update from [driver]: %v", es)
 				internalEs = es
 			}
@@ -101,18 +100,20 @@ func RunComms(
 // enable the conversion back to the internal messaging model.
 // Also, in case one elevator dies, the information is backed up here.
 type RequestRegistry struct {
-	HallUp   [m.NumFloors]m.RequestStatus
-	HallDown [m.NumFloors]m.RequestStatus
+	// HallUp and HallDown are arrays of request status where the index is the floor
+	HallUp   []m.RequestStatus
+	HallDown []m.RequestStatus
 
 	// Map uses the id of the elevator as key
 	// Is a string because the json conversion of network module only allows for strings
-	Cab map[string][m.NumFloors]m.RequestStatus
+	// The value is an array of request status where the index is the floor
+	Cab map[string][]m.RequestStatus
 }
 
 func NewRequestRegistry() RequestRegistry {
-	hu := [m.NumFloors]m.RequestStatus{}
-	hd := [m.NumFloors]m.RequestStatus{}
-	c := make(map[string][m.NumFloors]m.RequestStatus)
+	hu := make([]m.RequestStatus, m.NumFloors)
+	hd := make([]m.RequestStatus, m.NumFloors)
+	c := make(map[string][]m.RequestStatus)
 
 	for i := m.Floor(0); i < m.NumFloors; i++ {
 		hu[i] = m.Unknown
@@ -128,7 +129,7 @@ func NewRequestRegistry() RequestRegistry {
 
 // Adds a new cab to the registry
 func (r *RequestRegistry) InitNewCab(id string) {
-	cab := [m.NumFloors]m.RequestStatus{}
+	cab := make([]m.RequestStatus, m.NumFloors)
 	for i := m.Floor(0); i < m.NumFloors; i++ {
 		cab[i] = m.Unknown
 	}

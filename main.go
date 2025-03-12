@@ -24,12 +24,14 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	models.NumFloors = models.Floor(config.NumFloors)
+
 	// Elevator IO module initialization
 	var unvalidatedRequests = make(chan models.RequestMessage, 10)
 	var floorSensorUpdates = make(chan int, 10)
 	var obstructionSwitchUpdates = make(chan bool, 10)
 
-	elevatorio.Init(config.ElevatorAddr, config.NumFloors, models.Id(config.LocalPeerId))
+	elevatorio.Init(config.ElevatorAddr, models.Id(config.LocalPeerId))
 	go elevatorio.PollRequests(unvalidatedRequests)
 	go elevatorio.PollFloorSensor(floorSensorUpdates)
 	go elevatorio.PollObstructionSwitch(obstructionSwitchUpdates)

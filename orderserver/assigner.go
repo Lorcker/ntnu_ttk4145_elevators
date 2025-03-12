@@ -11,8 +11,11 @@ import (
 
 const pathToAssigner = "./orderserver/hall_request_assigner"
 
-type HallRequests = [int(m.NumFloors)][2]bool
-type CabRequests = [int(m.NumFloors)]bool
+// HallRequests is a 2D array of booleans, where the first dimension is the floor and the second dimension is the direction.
+type HallRequests = [][2]bool
+
+// CabRequests is an array of booleans, where the index is the floor.
+type CabRequests = []bool
 
 type elevator = struct {
 	Behavior    string      `json:"behavior"`

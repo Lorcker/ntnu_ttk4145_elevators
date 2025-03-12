@@ -322,9 +322,9 @@ func printElevatorState(elevator models.ElevatorState) {
 	log.Printf("Direction: %d\n\n", elevator.Direction)
 }
 
-func initOrders(numFloors int) models.Orders {
+func initOrders() models.Orders {
 	var orders models.Orders = models.Orders{}
-	for i := 0; i < numFloors; i++ {
+	for i := 0; i < int(models.NumFloors); i++ {
 		for j := 0; j < 3; j++ {
 			orders[i][j] = false
 		}
