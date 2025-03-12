@@ -8,6 +8,7 @@ import (
 
 	"Network-go/network/bcast"
 
+	"group48.ttk4145.ntnu/elevators/models"
 	m "group48.ttk4145.ntnu/elevators/models"
 )
 
@@ -46,7 +47,7 @@ func RunComms(
 	for {
 		select {
 		case es := <-fromDriver:
-			if internalEs != es {
+			if !models.IsEStateEqual(internalEs, es) {
 				log.Printf("[comms] Received new local elevator state update from [driver]: %v", es)
 				internalEs = es
 			}
@@ -62,6 +63,9 @@ func RunComms(
 			}
 
 		case <-sendTicker.C:
+			if internalEs == (m.ElevatorState{}) {
+				continue
+			}
 			u := udpMessage{
 				Source:   local,
 				Registry: registry,

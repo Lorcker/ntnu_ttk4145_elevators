@@ -9,7 +9,7 @@ import (
 
 // Global variables
 var doorTimerDuration = 3
-var elevatorStatePollRate = time.Millisecond * 100
+var elevatorStatePollRate = time.Millisecond * 1000
 var NButtons int = 3
 var NFloors int = 4
 
@@ -17,7 +17,8 @@ func Starter(pollObstructionSwitch <-chan bool,
 	pollFloorSensor <-chan int,
 	pollOrders <-chan models.Orders,
 	resolvedRequests chan<- models.RequestMessage,
-	receiver []chan<- models.ElevatorState,
+	toComms chan<- models.ElevatorState,
+	toOrders chan<- models.ElevatorState,
 	id models.Id) {
 
 	// Init elevator, obstruction and timer
@@ -61,9 +62,8 @@ func Starter(pollObstructionSwitch <-chan bool,
 				timerDoor.Reset(time.Duration(doorTimerDuration) * time.Second)
 			}
 		case <-tickerSendElevatorState.C:
-			for _, ch := range receiver {
-				ch <- elevator
-			}
+			toComms <- elevator
+			toOrders <- elevator
 		}
 	}
 }

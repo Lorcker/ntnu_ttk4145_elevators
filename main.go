@@ -36,17 +36,15 @@ func main() {
 
 	// Elevator Driver module initialization
 	var orders = make(chan models.Orders, 10)
-	var internalElevatorStateToComms = make(chan models.ElevatorState, 10)
-	var elevatorStatesToOrders = make(chan models.ElevatorState, 10)
-	var internalElevatorState = make([]chan<- models.ElevatorState, 2)
-	internalElevatorState[0] = internalElevatorStateToComms
-	internalElevatorState[1] = elevatorStatesToOrders
+	var internalEStateToComms = make(chan models.ElevatorState, 10)
+	var eStatesUpdatesToOrders = make(chan models.ElevatorState, 10)
 	go elevatordriver.Starter(
 		obstructionSwitchUpdates,
 		floorSensorUpdates,
 		orders,
 		unvalidatedRequests,
-		internalElevatorState,
+		internalEStateToComms,
+		eStatesUpdatesToOrders,
 		models.Id(config.LocalPeerId))
 
 	// Order module initialization
@@ -54,7 +52,7 @@ func main() {
 	var validatedRequestsToOrder = make(chan models.Request, 10)
 	go orderserver.RunOrderServer(
 		validatedRequestsToOrder,
-		elevatorStatesToOrders,
+		eStatesUpdatesToOrders,
 		aliveStatusOrders,
 		orders,
 		models.Id(config.LocalPeerId))
@@ -74,9 +72,9 @@ func main() {
 	go comms.RunComms(
 		models.Id(config.LocalPeerId),
 		config.LocalPort,
-		internalElevatorStateToComms,
+		internalEStateToComms,
 		internalValidatedRequestsToComms,
-		elevatorStatesToOrders,
+		eStatesUpdatesToOrders,
 		unvalidatedRequests,
 		ping)
 

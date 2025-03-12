@@ -323,7 +323,7 @@ func printElevatorState(elevator models.ElevatorState) {
 }
 
 func initOrders(numFloors int) models.Orders {
-	var orders models.Orders = make([][3]bool, numFloors)
+	var orders models.Orders = models.Orders{}
 	for i := 0; i < numFloors; i++ {
 		for j := 0; j < 3; j++ {
 			orders[i][j] = false
