@@ -35,7 +35,7 @@ func TestStarter(t *testing.T) {
 }
 
 func testPollOrders(receiver chan<- models.Orders, receiverRequest chan models.RequestMessage) {
-	orders := initOrders(NFloors)
+	orders := initOrders(int(models.NumFloors))
 	for order_request := range receiverRequest {
 		orders[order_request.Request.Origin.Floor][order_request.Request.Origin.ButtonType] = true
 		receiver <- orders
