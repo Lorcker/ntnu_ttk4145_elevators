@@ -24,7 +24,7 @@ func RunMonitor(
 	alivenessToOrders chan<- []models.Id) {
 
 	var lastSeen = make(lastSeen)
-	var lastAlive = make([]models.Id, 0)
+	var alivePeers = make(map[models.Id]bool)
 
 	ticker := time.NewTicker(PollInterval)
 	defer ticker.Stop()
@@ -38,39 +38,46 @@ func RunMonitor(
 			lastSeen[id] = time.Now()
 		case <-ticker.C:
 			a := getAlive(lastSeen)
-			a = append(a, local) // The local elevator is always alive
-			if slicesEqual(lastAlive, a) {
-				// Send no msg if new information is present
+			a[local] = true
+			if !isDifferent(a, alivePeers) {
 				continue
 			}
 
+			alivePeers = a
 			log.Printf("[healthmonitor] Notifying [orders] and [requests] that he alive list changed: %v", a)
-			alivenessToOrders <- a
-			alivenessToRequests <- a
-
-			lastAlive = a
+			s := mapToSlice(alivePeers)
+			alivenessToOrders <- s
+			alivenessToRequests <- s
 		}
 	}
 }
 
-func getAlive(ls lastSeen) []models.Id {
-	var a []models.Id
+func getAlive(ls lastSeen) map[models.Id]bool {
+	var a = make(map[models.Id]bool)
 	for id, t := range ls {
 		if time.Since(t) < Timeout {
-			a = append(a, id)
+			a[id] = true
 		}
 	}
 	return a
 }
 
-func slicesEqual(a, b []models.Id) bool {
+func isDifferent(a, b map[models.Id]bool) bool {
 	if len(a) != len(b) {
-		return false
+		return true
 	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
+	for id := range a {
+		if _, ok := b[id]; !ok {
+			return true
 		}
 	}
-	return true
+	return false
+}
+
+func mapToSlice(m map[models.Id]bool) []models.Id {
+	s := make([]models.Id, 0, len(m))
+	for id := range m {
+		s = append(s, id)
+	}
+	return s
 }

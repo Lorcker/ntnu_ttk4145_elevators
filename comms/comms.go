@@ -165,14 +165,15 @@ func (r *RequestRegistry) Update(req m.Request) {
 
 // Diff calculates the difference between two registries
 // and returns a slice of requestMessage where each represents a differing entry
+// If both states are Unconfirmed the entry is also included to enable acknoledgement of the request
 func (r *RequestRegistry) Diff(peer m.Id, other RequestRegistry) []m.RequestMessage {
 	var diff []m.RequestMessage
 
 	for f := m.Floor(0); f < m.NumFloors; f++ {
-		if other.HallUp[f] != r.HallUp[f] {
+		if isDifferent(r.HallUp[f], other.HallUp[f]) {
 			diff = append(diff, m.NewHallRequestMsg(peer, int(f), m.HallUp, other.HallUp[f]))
 		}
-		if other.HallDown[f] != r.HallDown[f] {
+		if isDifferent(r.HallDown[f], other.HallDown[f]) {
 			diff = append(diff, m.NewHallRequestMsg(peer, int(f), m.HallDown, other.HallDown[f]))
 		}
 	}
@@ -193,11 +194,20 @@ func (r *RequestRegistry) Diff(peer m.Id, other RequestRegistry) []m.RequestMess
 		}
 
 		for f := m.Floor(0); f < m.NumFloors; f++ {
-			if otherCab[f] != localCab[f] {
+			if isDifferent(localCab[f], otherCab[f]) {
 				diff = append(diff, m.NewCabRequestMsg(peer, m.Id(idI), int(f), otherCab[f]))
 			}
 		}
 	}
 
 	return diff
+}
+
+// isDifferent checks if two request status are different
+// If both are Unconfirmed the function returns true to enable acknoledgement of the request
+func isDifferent(a, b m.RequestStatus) bool {
+	if a == m.Unconfirmed && b == m.Unconfirmed {
+		return true
+	}
+	return a != b
 }
