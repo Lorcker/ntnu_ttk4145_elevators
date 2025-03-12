@@ -9,7 +9,7 @@ import (
 	m "group48.ttk4145.ntnu/elevators/models"
 )
 
-const pathToAssigner = "/home/cevin/Documents/NTNU/Courses/spring2025/TTK4145_Realtime/project/ntnu_ttk4145_elevators/orderserver/hall_request_assigner"
+const pathToAssigner = "./orderserver/hall_request_assigner"
 
 type HallRequests = [int(m.NumFloors)][2]bool
 type CabRequests = [int(m.NumFloors)]bool
