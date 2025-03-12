@@ -18,16 +18,14 @@ func RunRequestServer(
 	for {
 		select {
 		case msg := <-incomingRequests:
-			log.Printf("[requests] Received request: %v", msg.Request)
 			r := requestManager.process(msg)
-			setButtonLighting(local, msg.Request)
-			log.Printf("[requests] Processed request: %v", r)
+			log.Printf("[requests] Processed a new request:\n\tIncoming: %v\n\tProcessed: %v", msg.Request, r)
+			setButtonLighting(local, r)
 			for _, s := range subscribers {
 				s <- r
 			}
 		case alivePeers := <-peerStatus:
 			log.Printf("[requests] Received alive peers: %v", alivePeers)
-
 			requestManager.alivePeers = alivePeers
 		}
 	}
@@ -37,9 +35,10 @@ func setButtonLighting(local m.Id, req m.Request) {
 	if elevator, ok := req.Origin.Source.(m.Elevator); ok && elevator.Id != local {
 		return // Lighting does not concern this elevator
 	}
-	targetState := req.Status == m.Confirmed || !(req.Status == m.Absent)
+	targetState := req.Status == m.Confirmed
 
 	elevatorio.SetButtonLamp(req.Origin.ButtonType, req.Origin.Floor, targetState)
+	log.Printf("[requests] Set button lamp: %v, %v, %v", req.Origin.ButtonType, req.Origin.Floor, targetState)
 }
 
 type requestManager struct {

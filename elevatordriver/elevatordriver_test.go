@@ -16,7 +16,9 @@ func TestStarter(t *testing.T) {
 	pollOrders := make(chan models.Orders)
 	resolvedRequests := make(chan models.RequestMessage)
 
-	receiver := make([]chan<- models.ElevatorState, 0)
+	receiver1 := make(chan<- models.ElevatorState)
+	receiver2 := make(chan<- models.ElevatorState)
+
 	id := models.Id(3)
 
 	//For the test:
@@ -28,7 +30,7 @@ func TestStarter(t *testing.T) {
 	go elevatorio.PollFloorSensor(pollFloorSensor)
 	go elevatorio.PollObstructionSwitch(pollObstructionSwitch)
 
-	Starter(pollObstructionSwitch, pollFloorSensor, pollOrders, resolvedRequests, receiver, id)
+	Starter(pollObstructionSwitch, pollFloorSensor, pollOrders, resolvedRequests, receiver1, receiver2, id)
 
 }
 

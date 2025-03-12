@@ -19,7 +19,7 @@ const (
 	Moving
 )
 
-type Orders [][3]bool
+type Orders [NumFloors][3]bool
 
 type MotorDirection int
 
@@ -36,3 +36,7 @@ const (
 	HallDown            = 1
 	Cab                 = 2
 )
+
+func IsEStateEqual(a, b ElevatorState) bool {
+	return a.Id == b.Id && a.Floor == b.Floor && a.Behavior == b.Behavior && a.Direction == b.Direction
+}
