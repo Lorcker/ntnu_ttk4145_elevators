@@ -10,8 +10,6 @@ import (
 // Global variables
 var doorTimerDuration = 3
 var elevatorStatePollRate = time.Millisecond * 1000
-var NButtons int = 3
-var NFloors int = 4
 
 func Starter(pollObstructionSwitch <-chan bool,
 	pollFloorSensor <-chan int,
@@ -22,9 +20,13 @@ func Starter(pollObstructionSwitch <-chan bool,
 	id models.Id) {
 
 	// Init elevator, obstruction and timer
-	elevator := models.ElevatorState{Id: id, Floor: 0, Behavior: models.Idle, Direction: models.MotorDirection(0)}
+	elevator := models.ElevatorState{
+		Id:        id,
+		Floor:     0,
+		Behavior:  models.Idle,
+		Direction: models.MotorDirection(0)}
 	orders := initOrders()
-	initElevator()
+	onInitBetweenFloors()
 
 	receiverStartDoorTimer := make(chan bool, 10)
 	timerDoor := time.NewTimer((time.Duration(doorTimerDuration)) * time.Second)
