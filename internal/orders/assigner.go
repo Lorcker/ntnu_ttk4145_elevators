@@ -38,12 +38,10 @@ type jsonState = struct {
 }
 
 func calculateOrders(hr HallRequests, cr map[m.Id]CabRequests, elevators map[m.Id]m.ElevatorState) map[m.Id]m.Orders {
-	print("Calculating orders\n")
 	jsonState := convertToJson(hr, cr, elevators)
 
 	// Send jsonState to the assigner
 	cmd := exec.Command(pathToAssigner, "-i", jsonState, "--includeCab")
-	println(cmd.String())
 
 	out, err := cmd.Output()
 	if err != nil {

@@ -2,6 +2,7 @@ package orders
 
 import (
 	"log"
+	"reflect"
 	"time"
 
 	"group48.ttk4145.ntnu/elevators/internal/models"
@@ -17,6 +18,7 @@ func RunOrderServer(
 	localPeerId models.Id) {
 
 	cache := newCache()
+	oldOrders := make(map[models.Id]models.Orders)
 	orderRefresh := time.NewTicker(orderRefreshRate)
 
 	//init local vars
@@ -44,11 +46,15 @@ func RunOrderServer(
 			if !cache.IsConsistent() {
 				continue
 			}
-			os := calculateOrders(cache.Hr, cache.Cr, cache.Elevators)
-			log.Printf("[orderserver] Calculated new orders: %v", os)
+			newOrders := calculateOrders(cache.Hr, cache.Cr, cache.Elevators)
+			if reflect.DeepEqual(newOrders, oldOrders) {
+				continue
+			}
 
-			order := os[localPeerId]
-			orders <- order
+			log.Printf("[orderserver] Derived new orders:\n\tOld: %v\n\tNew: %v", oldOrders, newOrders)
+			orders <- newOrders[localPeerId]
+
+			oldOrders = newOrders
 		}
 
 	}
