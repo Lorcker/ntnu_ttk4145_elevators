@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"group48.ttk4145.ntnu/elevators/models"
+	"group48.ttk4145.ntnu/elevators/internal/models"
 )
 
 // Timeout is the time after which an elevator is considered dead.

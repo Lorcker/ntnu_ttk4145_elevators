@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"group48.ttk4145.ntnu/elevators/elevatorio" // Assuming PollRequests is in this package
-	"group48.ttk4145.ntnu/elevators/models"     // Assuming your models are here
+	"group48.ttk4145.ntnu/elevators/internal/elevatorio" // Assuming PollRequests is in this package
+	"group48.ttk4145.ntnu/elevators/internal/models"     // Assuming your models are here
 )
 
 func initTestElevator(nFloors int) models.Orders {

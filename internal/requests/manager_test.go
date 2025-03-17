@@ -3,7 +3,7 @@ package requests
 import (
 	"testing"
 
-	m "group48.ttk4145.ntnu/elevators/models"
+	m "group48.ttk4145.ntnu/elevators/internal/models"
 )
 
 func TestRequestManager_OnePeerCycle(t *testing.T) {

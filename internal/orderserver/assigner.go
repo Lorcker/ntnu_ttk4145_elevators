@@ -4,12 +4,20 @@ import (
 	"encoding/json"
 	"log"
 	"os/exec"
+	"runtime"
 	"strconv"
 
-	m "group48.ttk4145.ntnu/elevators/models"
+	"path/filepath"
+
+	m "group48.ttk4145.ntnu/elevators/internal/models"
 )
 
-const pathToAssigner = "./orderserver/hall_request_assigner"
+func getBasePath() string {
+	_, b, _, _ := runtime.Caller(0)
+	return filepath.Dir(b)
+}
+
+var pathToAssigner = filepath.Join(getBasePath(), "../../external/assigner/hall_request_assigner")
 
 // HallRequests is a 2D array of booleans, where the first dimension is the floor and the second dimension is the direction.
 type HallRequests = [][2]bool
@@ -30,10 +38,12 @@ type jsonState = struct {
 }
 
 func calculateOrders(hr HallRequests, cr map[m.Id]CabRequests, elevators map[m.Id]m.ElevatorState) map[m.Id]m.Orders {
+	print("Calculating orders\n")
 	jsonState := convertToJson(hr, cr, elevators)
 
 	// Send jsonState to the assigner
 	cmd := exec.Command(pathToAssigner, "-i", jsonState, "--includeCab")
+	println(cmd.String())
 
 	out, err := cmd.Output()
 	if err != nil {

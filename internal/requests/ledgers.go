@@ -1,6 +1,6 @@
 package requests
 
-import m "group48.ttk4145.ntnu/elevators/models"
+import m "group48.ttk4145.ntnu/elevators/internal/models"
 
 // ledgerTracker keeps track of which peers have acknowledged a request
 //

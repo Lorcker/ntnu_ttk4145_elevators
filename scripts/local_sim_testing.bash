@@ -20,7 +20,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 SIMULATOR_EXECUTABLE=$1
-ELEVATOR_PROGRAM="main.go"
+ELEVATOR_PROGRAM="../cmd/elevator/main.go"
 
 # Define base ports for the simulator and the Go program
 SIMULATOR_BASE_PORT=5000

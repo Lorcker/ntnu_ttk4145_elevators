@@ -1,14 +1,13 @@
 package comms
 
 import (
+	"Network-go/network/bcast"
 	"fmt"
 	"log"
 	"strconv"
 	"time"
 
-	"Network-go/network/bcast"
-
-	m "group48.ttk4145.ntnu/elevators/models"
+	m "group48.ttk4145.ntnu/elevators/internal/models"
 )
 
 const SendInterval = time.Millisecond * 100

@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	m "group48.ttk4145.ntnu/elevators/models"
+	m "group48.ttk4145.ntnu/elevators/internal/models"
 )
 
 func Test_calculateOrders(t *testing.T) {

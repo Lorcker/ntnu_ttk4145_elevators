@@ -13,10 +13,13 @@ One peer of the system shares the state of its local elevator and the requests i
 The request mechanism and regular sharing of the elevator states ensure that all peers have consistent enough information to convert requests into orders. We define an order as an instruction to the elevator to execute a request. Only confirmed requests are converted into orders. As every peer shares the same information when assigning requests, they all decide on a common order distribution.
 
 
-## Structure
+## System Structure
 The project is divided into several modules which are separated by channels. Each module runs in its own routine. This enables a clean separation of responsibilities. The diagram below shows which modules exist and how they interact with each other.
 
 ![Modules](https://github.com/user-attachments/assets/86796711-9c2b-4447-bbf8-c36a1185ea02)
+
+## Repo Structure
+The repo is structured according to [Go docu](https://go.dev/doc/modules/layout) and uses the project-layout from the [golang-standards team](https://github.com/golang-standards/project-layout).
 
 ## Local Testing
 To manually test multiple elevators locally follow theses steps:

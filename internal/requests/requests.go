@@ -4,8 +4,8 @@ package requests
 import (
 	"log"
 
-	"group48.ttk4145.ntnu/elevators/elevatorio"
-	"group48.ttk4145.ntnu/elevators/models"
+	"group48.ttk4145.ntnu/elevators/internal/elevatorio"
+	"group48.ttk4145.ntnu/elevators/internal/models"
 )
 
 // RunRequestServer should be run as a goroutine and takes care of processing requests.

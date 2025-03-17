@@ -6,17 +6,17 @@ import (
 	"log"
 	"os"
 
-	"group48.ttk4145.ntnu/elevators/comms"
-	"group48.ttk4145.ntnu/elevators/elevatordriver"
-	"group48.ttk4145.ntnu/elevators/elevatorio"
-	"group48.ttk4145.ntnu/elevators/healthmonitor"
-	"group48.ttk4145.ntnu/elevators/models"
-	"group48.ttk4145.ntnu/elevators/orderserver"
-	"group48.ttk4145.ntnu/elevators/requests"
+	"group48.ttk4145.ntnu/elevators/internal/comms"
+	"group48.ttk4145.ntnu/elevators/internal/elevatordriver"
+	"group48.ttk4145.ntnu/elevators/internal/elevatorio"
+	"group48.ttk4145.ntnu/elevators/internal/healthmonitor"
+	"group48.ttk4145.ntnu/elevators/internal/models"
+	"group48.ttk4145.ntnu/elevators/internal/orderserver"
+	"group48.ttk4145.ntnu/elevators/internal/requests"
 )
 
 func main() {
-	configPath := flag.String("config", "config.json", "Path to config file")
+	configPath := flag.String("config", "./configs/config.json", "Path to config file")
 	flag.Parse()
 
 	config, err := LoadConfig(*configPath)

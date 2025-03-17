@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"group48.ttk4145.ntnu/elevators/models"
+	"group48.ttk4145.ntnu/elevators/internal/models"
 )
 
 // Global variables

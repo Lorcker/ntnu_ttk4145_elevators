@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"group48.ttk4145.ntnu/elevators/elevatorio"
-	"group48.ttk4145.ntnu/elevators/models"
+	"group48.ttk4145.ntnu/elevators/internal/elevatorio"
+	"group48.ttk4145.ntnu/elevators/internal/models"
 )
 
 var EverybodyGoesOn bool = false
@@ -267,7 +267,7 @@ func printElevatorState(elevator models.ElevatorState) {
 }
 
 func initOrders() models.Orders {
-	var orders models.Orders = models.Orders{}
+	var orders models.Orders = make(models.Orders, models.NumFloors)
 	for i := 0; i < int(models.NumFloors); i++ {
 		for j := 0; j < 3; j++ {
 			orders[i][j] = false

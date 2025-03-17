@@ -3,7 +3,7 @@ package comms
 import (
 	"testing"
 
-	"group48.ttk4145.ntnu/elevators/models"
+	"group48.ttk4145.ntnu/elevators/internal/models"
 )
 
 func TestRegistryDiff(t *testing.T) {

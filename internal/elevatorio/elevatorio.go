@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"group48.ttk4145.ntnu/elevators/models"
+	"group48.ttk4145.ntnu/elevators/internal/models"
 )
 
 const _pollRate = 20 * time.Millisecond

@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	// Assuming PollRequests is in this package
-	"group48.ttk4145.ntnu/elevators/elevatorio"
-	"group48.ttk4145.ntnu/elevators/models" // Assuming your models are here
+	"group48.ttk4145.ntnu/elevators/internal/elevatorio"
+	"group48.ttk4145.ntnu/elevators/internal/models" // Assuming your models are here
 )
 
 func TestStarter(t *testing.T) {
