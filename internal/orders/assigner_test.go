@@ -9,8 +9,8 @@ import (
 
 func Test_calculateOrders(t *testing.T) {
 	type args struct {
-		hr        HallRequests
-		cr        map[m.Id]CabRequests
+		hr        hallRequests
+		cr        map[m.Id]habRequests
 		elevators map[m.Id]m.ElevatorState
 	}
 	tests := []struct {
@@ -21,13 +21,13 @@ func Test_calculateOrders(t *testing.T) {
 		{
 			name: "Test 1",
 			args: args{
-				hr: HallRequests{
+				hr: hallRequests{
 					[2]bool{true, false},
 					[2]bool{false, true},
 					[2]bool{true, false},
 					[2]bool{false, true},
 				},
-				cr: map[m.Id]CabRequests{
+				cr: map[m.Id]habRequests{
 					1: []bool{true, false, true, false},
 					2: []bool{false, true, false, true},
 				},
