@@ -1,4 +1,4 @@
-package elevatordriver
+package driver
 
 import (
 	"fmt"

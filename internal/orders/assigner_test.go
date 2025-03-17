@@ -1,4 +1,4 @@
-package orderserver
+package orders
 
 import (
 	"reflect"

@@ -7,11 +7,11 @@ import (
 	"os"
 
 	"group48.ttk4145.ntnu/elevators/internal/comms"
-	"group48.ttk4145.ntnu/elevators/internal/elevatordriver"
+	"group48.ttk4145.ntnu/elevators/internal/driver"
 	"group48.ttk4145.ntnu/elevators/internal/elevatorio"
 	"group48.ttk4145.ntnu/elevators/internal/healthmonitor"
 	"group48.ttk4145.ntnu/elevators/internal/models"
-	"group48.ttk4145.ntnu/elevators/internal/orderserver"
+	"group48.ttk4145.ntnu/elevators/internal/orders"
 	"group48.ttk4145.ntnu/elevators/internal/requests"
 )
 
@@ -37,13 +37,13 @@ func main() {
 	go elevatorio.PollObstructionSwitch(obstructionSwitchUpdates)
 
 	// Elevator Driver module initialization
-	var orders = make(chan models.Orders, 10)
+	var orderUpdates = make(chan models.Orders, 10)
 	var internalEStateToComms = make(chan models.ElevatorState, 10)
 	var eStatesUpdatesToOrders = make(chan models.ElevatorState, 10)
-	go elevatordriver.Starter(
+	go driver.Starter(
 		obstructionSwitchUpdates,
 		floorSensorUpdates,
-		orders,
+		orderUpdates,
 		unvalidatedRequests,
 		internalEStateToComms,
 		eStatesUpdatesToOrders,
@@ -52,11 +52,11 @@ func main() {
 	// Order module initialization
 	var aliveStatusOrders = make(chan []models.Id, 10)
 	var validatedRequestsToOrder = make(chan models.Request, 10)
-	go orderserver.RunOrderServer(
+	go orders.RunOrderServer(
 		validatedRequestsToOrder,
 		eStatesUpdatesToOrders,
 		aliveStatusOrders,
-		orders,
+		orderUpdates,
 		models.Id(config.LocalPeerId))
 
 	// Health monitor module initialization
