@@ -41,11 +41,18 @@ func (r *cache) AddRequest(req request.Request) (didChange bool) {
 
 // addHallRequest adds a hall request to the cache and returns true if the cache changed
 func (r *cache) addHallRequest(floor elevator.Floor, direction request.Direction, status bool) (didChange bool) {
+	// Hall requests are always initialized so no need to check for existence
 	hr := r.Hr
 	oldStatus := hr[floor][direction]
+
+	if oldStatus == status {
+		// No change
+		return false
+	}
+
 	hr[floor][direction] = status
 	r.Hr = hr
-	return oldStatus != status
+	return true
 }
 
 // addCabRequest adds a cab request to the cache and returns true if the cache changed
@@ -55,22 +62,34 @@ func (r *cache) addCabRequest(id elevator.Id, floor elevator.Floor, status bool)
 		cr = cabRequests{}
 	}
 	oldStatus := cr[floor]
+
+	if oldStatus == status {
+		// No change
+		return false
+	}
+
 	cr[floor] = status
 	r.Cr[id] = cr
-	return oldStatus != status
+	return true
 }
 
 // AddElevatorState adds an elevator state to the cache and returns true if the cache changed
 func (r *cache) AddElevatorState(id elevator.Id, state elevator.State) (didChange bool) {
 	oldState, ok := r.States[id]
-	if !ok {
-		r.States[id] = state
-		r.Cr[id] = cabRequests{} // Initialize cab requests for the new elevator
-		return true
+
+	if ok && oldState == state {
+		// No change
+		return false
 	}
 
-	if oldState == state {
-		return false
+	if _, ok := r.Cr[id]; !ok {
+		// Initialize cab requests for the new elevator if it does not exist
+		// This is needed to ensure that the cache gets consistent
+		// Only when consistent, the order server will calculate new orders
+		// Otherwise, the local elevator might get stuck in a state where it does not receive any orders
+		// Until a cab request is made
+		// A check if already initialized is needed to avoid overwriting existing cab requests
+		r.Cr[id] = cabRequests{}
 	}
 
 	r.States[id] = state
