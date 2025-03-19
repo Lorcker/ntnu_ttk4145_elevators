@@ -4,19 +4,19 @@ import (
 	"reflect"
 	"testing"
 
-	m "group48.ttk4145.ntnu/elevators/internal/models"
+	"group48.ttk4145.ntnu/elevators/internal/models/elevator"
 )
 
 func Test_calculateOrders(t *testing.T) {
 	type args struct {
 		hr        hallRequests
-		cr        map[m.Id]habRequests
-		elevators map[m.Id]m.ElevatorState
+		cr        map[elevator.Id]cabRequests
+		elevators map[elevator.Id]elevator.State
 	}
 	tests := []struct {
 		name string
 		args args
-		want map[m.Id]m.Orders
+		want map[elevator.Id]elevator.Order
 	}{
 		{
 			name: "Test 1",
@@ -27,26 +27,24 @@ func Test_calculateOrders(t *testing.T) {
 					[2]bool{true, false},
 					[2]bool{false, true},
 				},
-				cr: map[m.Id]habRequests{
-					1: []bool{true, false, true, false},
-					2: []bool{false, true, false, true},
+				cr: map[elevator.Id]cabRequests{
+					1: {true, false, true, false},
+					2: {false, true, false, true},
 				},
-				elevators: map[m.Id]m.ElevatorState{
+				elevators: map[elevator.Id]elevator.State{
 					1: {
-						Id:        1,
-						Behavior:  m.Idle,
+						Behavior:  elevator.Idle,
 						Floor:     0,
-						Direction: m.Up,
+						Direction: elevator.Up,
 					},
 					2: {
-						Id:        2,
-						Behavior:  m.Moving,
+						Behavior:  elevator.Moving,
 						Floor:     1,
-						Direction: m.Down,
+						Direction: elevator.Down,
 					},
 				},
 			},
-			want: map[m.Id]m.Orders{},
+			want: map[elevator.Id]elevator.Order{},
 		},
 	}
 	for _, tt := range tests {

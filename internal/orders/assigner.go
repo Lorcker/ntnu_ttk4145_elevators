@@ -9,7 +9,7 @@ import (
 
 	"path/filepath"
 
-	m "group48.ttk4145.ntnu/elevators/internal/models"
+	"group48.ttk4145.ntnu/elevators/internal/models/elevator"
 )
 
 func getBasePath() string {
@@ -25,38 +25,38 @@ var pathToAssigner = filepath.Join(getBasePath(), "../../external/assigner/hall_
 // It is used to represent the state of the system as expected by the assigner executable
 type jsonState = struct {
 	HallRequests hallRequests        `json:"hallRequests"`
-	States       map[string]elevator `json:"states"`
+	States       map[string]jsonElev `json:"states"`
 }
 
-// elevator struct used for json marshalling and unmarshaling
+// jsonElev struct used for json marshalling and unmarshaling
 //
-// It is used to represent the state of an elevator as expected by the assigner executable
-type elevator = struct {
+// It is used to represent the state of an jsonElev as expected by the assigner executable
+type jsonElev = struct {
 	Behavior    string      `json:"behavior"`
 	Floor       int         `json:"floor"`
 	Direction   string      `json:"direction"`
-	CabRequests habRequests `json:"cabRequests"`
+	CabRequests cabRequests `json:"cabRequests"`
 }
 
 // dirToString converts a motor direction to the corresponding string
-var dirToString = map[m.MotorDirection]string{
-	m.Up:   "up",
-	m.Down: "down",
-	m.Stop: "stop",
+var dirToString = map[elevator.MotorDirection]string{
+	elevator.Up:   "up",
+	elevator.Down: "down",
+	elevator.Stop: "stop",
 }
 
 // behaviorToString converts an elevator behavior to the corresponding string
-var behaviorToString = map[m.ElevatorBehavior]string{
-	m.Idle:     "idle",
-	m.Moving:   "moving",
-	m.DoorOpen: "doorOpen",
+var behaviorToString = map[elevator.Behavior]string{
+	elevator.Idle:     "idle",
+	elevator.Moving:   "moving",
+	elevator.DoorOpen: "doorOpen",
 }
 
 // calculateOrders calculates the orders for the elevators
 //
 // It sends the state of the system to the hall_request_assigner executable and returns the orders.
 // This approach is used to avoid having to implement the assigner logic in Go which would lead to code duplication and potential bugs.
-func calculateOrders(hr hallRequests, cr map[m.Id]habRequests, elevators map[m.Id]m.ElevatorState) map[m.Id]m.Orders {
+func calculateOrders(hr hallRequests, cr map[elevator.Id]cabRequests, elevators map[elevator.Id]elevator.State) map[elevator.Id]elevator.Order {
 	jsonState := convertToJson(hr, cr, elevators)
 
 	// Send jsonState to the assigner
@@ -71,38 +71,38 @@ func calculateOrders(hr hallRequests, cr map[m.Id]habRequests, elevators map[m.I
 }
 
 // convertFromJson converts a json string to a map of orders
-func convertFromJson(j string) map[m.Id]m.Orders {
-	var o map[string]m.Orders
+func convertFromJson(j string) map[elevator.Id]elevator.Order {
+	var o map[string]elevator.Order
 	err := json.Unmarshal([]byte(j), &o)
 	if err != nil {
 		log.Fatalf("[orderserver] Error unmarshalling json: %v", err)
 	}
 
-	orders := make(map[m.Id]m.Orders)
+	orders := make(map[elevator.Id]elevator.Order)
 	for k, v := range o {
 		id, err := strconv.Atoi(k)
 		if err != nil {
 			log.Fatalf("[orderserver] Error converting id to int: %v", err)
 		}
-		orders[m.Id(id)] = v
+		orders[elevator.Id(id)] = v
 	}
 	return orders
 }
 
 // convertToJson converts the state of the system to a json string
-func convertToJson(hr hallRequests, cr map[m.Id]habRequests, elevators map[m.Id]m.ElevatorState) string {
+func convertToJson(hr hallRequests, cr map[elevator.Id]cabRequests, elevators map[elevator.Id]elevator.State) string {
 	jsonState := jsonState{
 		HallRequests: hr,
-		States:       make(map[string]elevator),
+		States:       make(map[string]jsonElev),
 	}
 
-	for _, e := range elevators {
-		id := strconv.Itoa(int(e.Id))
-		jsonState.States[id] = elevator{
+	for id, e := range elevators {
+		idStr := strconv.Itoa(int(id))
+		jsonState.States[idStr] = jsonElev{
 			Behavior:    behaviorToString[e.Behavior],
-			Floor:       e.Floor,
+			Floor:       int(e.Floor),
 			Direction:   dirToString[e.Direction],
-			CabRequests: cr[e.Id],
+			CabRequests: cr[id],
 		}
 	}
 

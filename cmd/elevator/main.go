@@ -10,10 +10,13 @@ import (
 	"group48.ttk4145.ntnu/elevators/internal/driver"
 	"group48.ttk4145.ntnu/elevators/internal/elevatorio"
 	"group48.ttk4145.ntnu/elevators/internal/healthmonitor"
-	"group48.ttk4145.ntnu/elevators/internal/models"
+	"group48.ttk4145.ntnu/elevators/internal/models/elevator"
+	"group48.ttk4145.ntnu/elevators/internal/models/message"
 	"group48.ttk4145.ntnu/elevators/internal/orders"
 	"group48.ttk4145.ntnu/elevators/internal/requests"
 )
+
+const channelBufferSize = 10
 
 func main() {
 	configPath := flag.String("config", "./configs/config.json", "Path to config file")
@@ -24,80 +27,81 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	models.NumFloors = models.Floor(config.NumFloors)
+	localId := elevator.Id(config.LocalPeerId)
 
-	// Elevator IO module initialization
-	var unvalidatedRequests = make(chan models.RequestMessage, 10)
-	var floorSensorUpdates = make(chan int, 10)
-	var obstructionSwitchUpdates = make(chan bool, 10)
+	floorSensorUpdate := make(chan message.FloorSensor, channelBufferSize)
+	obstructionSwitchUpdate := make(chan message.ObstructionSwitch, channelBufferSize)
 
-	elevatorio.Init(config.ElevatorAddr, models.Id(config.LocalPeerId))
-	go elevatorio.PollRequests(unvalidatedRequests)
-	go elevatorio.PollFloorSensor(floorSensorUpdates)
-	go elevatorio.PollObstructionSwitch(obstructionSwitchUpdates)
+	requestStateUpdateToRequest := make(chan message.RequestStateUpdate, channelBufferSize)
+	requestStateNotifyToOrders := make(chan message.RequestStateUpdate, channelBufferSize)
+	requestStateNotifyToComms := make(chan message.RequestStateUpdate, channelBufferSize)
 
-	// Elevator Driver module initialization
-	var orderUpdates = make(chan models.Orders, 10)
-	var internalEStateToComms = make(chan models.ElevatorState, 10)
-	var eStatesUpdatesToOrders = make(chan models.ElevatorState, 10)
-	go driver.Starter(
-		obstructionSwitchUpdates,
-		floorSensorUpdates,
+	orderUpdates := make(chan message.Order, channelBufferSize)
+
+	elevatorStateUpdateToOrders := make(chan message.ElevatorStateUpdate, channelBufferSize)
+	elevatorStateUpdateToComms := make(chan message.ElevatorStateUpdate, channelBufferSize)
+
+	heartbeatUpdate := make(chan message.PeerHeartbeat, channelBufferSize)
+	alivePeersNotifyToOrders := make(chan message.AlivePeersUpdate, channelBufferSize)
+	alivePeersNotifyToRequests := make(chan message.AlivePeersUpdate, channelBufferSize)
+
+	elevatorio.Init(config.ElevatorAddr, localId)
+	go elevatorio.PollNewRequests(requestStateUpdateToRequest)
+	go elevatorio.PollFloorSensor(floorSensorUpdate)
+	go elevatorio.PollObstructionSwitch(obstructionSwitchUpdate)
+
+	go driver.RunDriver(
+		obstructionSwitchUpdate,
+		floorSensorUpdate,
 		orderUpdates,
-		unvalidatedRequests,
-		internalEStateToComms,
-		eStatesUpdatesToOrders,
-		models.Id(config.LocalPeerId))
+		requestStateUpdateToRequest,
+		elevatorStateUpdateToComms,
+		elevatorStateUpdateToOrders,
+		localId,
+	)
 
-	// Order module initialization
-	var aliveStatusOrders = make(chan []models.Id, 10)
-	var validatedRequestsToOrder = make(chan models.Request, 10)
+	requestSubscribers := []chan<- message.RequestStateUpdate{
+		requestStateNotifyToOrders,
+		requestStateNotifyToComms,
+	}
+	go requests.RunRequestServer(
+		localId,
+		requestStateUpdateToRequest,
+		alivePeersNotifyToRequests,
+		requestSubscribers,
+	)
+
 	go orders.RunOrderServer(
-		validatedRequestsToOrder,
-		eStatesUpdatesToOrders,
-		aliveStatusOrders,
+		localId,
+		requestStateNotifyToOrders,
+		elevatorStateUpdateToOrders,
+		alivePeersNotifyToOrders,
 		orderUpdates,
-		models.Id(config.LocalPeerId))
+	)
 
-	// Health monitor module initialization
-	var ping = make(chan models.Id, 10)
-	var alivenessToRequests = make(chan []models.Id, 10)
 	go healthmonitor.RunMonitor(
-		models.Id(config.LocalPeerId),
-		ping,
-		alivenessToRequests,
-		aliveStatusOrders)
-
-	// Comms module initialization
-	var internalValidatedRequestsToComms = make(chan models.Request, 10)
+		localId,
+		heartbeatUpdate,
+		alivePeersNotifyToRequests,
+		alivePeersNotifyToOrders,
+	)
 
 	go comms.RunComms(
-		models.Id(config.LocalPeerId),
+		localId,
 		config.LocalPort,
-		internalEStateToComms,
-		internalValidatedRequestsToComms,
-		eStatesUpdatesToOrders,
-		unvalidatedRequests,
-		ping)
-
-	// Request module initialization
-	var validatedRequests = make([]chan<- models.Request, 2)
-	validatedRequests[0] = validatedRequestsToOrder
-	validatedRequests[1] = internalValidatedRequestsToComms
-	go requests.RunRequestServer(
-		models.Id(config.LocalPeerId),
-		unvalidatedRequests,
-		alivenessToRequests,
-		validatedRequests)
+		elevatorStateUpdateToComms,
+		requestStateNotifyToComms,
+		elevatorStateUpdateToOrders,
+		requestStateUpdateToRequest,
+		heartbeatUpdate,
+	)
 
 	select {}
 }
 
 type Config struct {
 	ElevatorAddr string `json:"elevator_addr"`
-	NumFloors    int    `json:"num_floors"`
 	LocalPeerId  int    `json:"local_peer_id"`
-	LocalAddr    string `json:"local_addr"`
 	LocalPort    int    `json:"local_port"`
 }
 

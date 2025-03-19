@@ -6,7 +6,9 @@ import (
 	"reflect"
 	"time"
 
-	"group48.ttk4145.ntnu/elevators/internal/models"
+	"group48.ttk4145.ntnu/elevators/internal/models/elevator"
+	"group48.ttk4145.ntnu/elevators/internal/models/message"
+	"group48.ttk4145.ntnu/elevators/internal/models/request"
 )
 
 // orderRefreshRate is the rate at which the order server will redistribute orders
@@ -19,36 +21,37 @@ const orderRefreshRate = time.Millisecond * 2000
 // stores them in a cache. The server then calculates the orders based on the cache and
 // sends the local orders to the elevator driver.
 func RunOrderServer(
-	requestUpdate <-chan models.Request,
-	stateUpdate <-chan models.ElevatorState,
-	aliveListUpdate <-chan []models.Id,
-	orderUpdates chan<- models.Orders,
-	localPeerId models.Id) {
+	localPeerId elevator.Id,
+	requestUpdate <-chan message.RequestStateUpdate,
+	stateUpdate <-chan message.ElevatorStateUpdate,
+	aliveListUpdate <-chan message.AlivePeersUpdate,
+	orderUpdates chan<- message.Order,
+) {
 
 	// cache stores the latest requests, elevator states and alive information
 	cache := newCache()
 	// old orders stores the last calculated orders and is used to check if the orders have changed
-	oldOrders := make(map[models.Id]models.Orders)
+	oldOrders := make(map[elevator.Id]elevator.Order)
 	// orderRefresh is a ticker that will trigger the order server to recalculate orders
 	orderRefresh := time.NewTicker(orderRefreshRate)
 
 	for {
 		select {
-		case r := <-requestUpdate:
-			if r.Status == models.Unconfirmed || r.Status == models.Unknown {
+		case msg := <-requestUpdate:
+			if msg.Request.Status == request.Unconfirmed || msg.Request.Status == request.Unknown {
 				// These are not relevant for the order sever
 				continue
 			}
 
-			if cache.AddRequest(r) {
+			if cache.AddRequest(msg.Request) {
 				log.Printf("[orderserver] Request cache changed to:\n\tHallRequests: %v\n\tCabRequests: %v", cache.Hr, cache.Cr)
 			}
-		case a := <-aliveListUpdate:
-			log.Printf("[orderserver] Received alive status: %v", a)
-			cache.ProcessAliveUpdate(a)
+		case msg := <-aliveListUpdate:
+			log.Printf("[orderserver] Received alive status: %v", msg.Peers)
+			cache.ProcessAliveUpdate(msg.Peers)
 
-		case newState := <-stateUpdate:
-			if cache.AddElevatorState(newState) {
+		case msg := <-stateUpdate:
+			if cache.AddElevatorState(msg.Elevator, msg.State) {
 				log.Printf("[orderserver] Elevator state cache changed to: %v", cache.States)
 			}
 
@@ -65,7 +68,9 @@ func RunOrderServer(
 			}
 
 			log.Printf("[orderserver] Derived new orders:\n\tOld: %v\n\tNew: %v", oldOrders, newOrders)
-			orderUpdates <- newOrders[localPeerId]
+			orderUpdates <- message.Order{
+				Order: newOrders[localPeerId],
+			}
 
 			oldOrders = newOrders
 		}

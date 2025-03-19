@@ -5,134 +5,123 @@ import (
 	"log"
 
 	"group48.ttk4145.ntnu/elevators/internal/elevatorio"
-	"group48.ttk4145.ntnu/elevators/internal/models"
+	"group48.ttk4145.ntnu/elevators/internal/models/elevator"
 )
 
 var EverybodyGoesOn bool = false
 
-func onInitBetweenFloors() {
-	if floor := elevatorio.GetFloor(); floor != 0 {
-		elevatorio.SetMotorDirection(-1)
-		for elevatorio.GetFloor() != 0 {
-		}
-		elevatorio.SetMotorDirection(0)
-	}
-}
+type resolvedRequests func(btn elevator.ButtonType, floor elevator.Floor)
 
-func HandleOrderEvent(elevator *models.ElevatorState, orders models.Orders, recieverDoorTimer chan<- bool, resolvedRequests chan<- models.RequestMessage) {
-	switch elevator.Behavior {
-	case models.Idle:
-		RequestChooseDirection(elevator, orders, recieverDoorTimer)
-		if elevator.Behavior == models.DoorOpen {
-			RequestClearAtCurrentFloor(*elevator, &orders, resolvedRequests)
-		} else if elevator.Behavior == models.Moving {
-			elevatorio.SetMotorDirection(elevator.Direction)
+func handleOrderEvent(state *elevator.State, orders elevator.Order, recieverDoorTimer chan<- bool, rr resolvedRequests) {
+	switch state.Behavior {
+	case elevator.Idle:
+		requestChooseDirection(state, orders, recieverDoorTimer)
+		if state.Behavior == elevator.DoorOpen {
+			requestClearAtCurrentFloor(*state, &orders, rr)
+		} else if state.Behavior == elevator.Moving {
+			elevatorio.SetMotorDirection(state.Direction)
 		}
 
-	case models.DoorOpen:
-		if RequestShouldClearImmediatly(*elevator, orders) {
+	case elevator.DoorOpen:
+		if RequestShouldClearImmediatly(*state, orders) {
 			recieverDoorTimer <- true
-			RequestClearAtCurrentFloor(*elevator, &orders, resolvedRequests)
+			requestClearAtCurrentFloor(*state, &orders, rr)
 		}
 	}
 }
 
-func HandleFloorsensorEvent(elevator *models.ElevatorState, orders models.Orders, floor int, recieverDoorTimer chan<- bool, resolvedRequests chan<- models.RequestMessage) {
-	elevator.Floor = floor
+func handleFloorsensorEvent(state *elevator.State, orders elevator.Order, floor elevator.Floor, recieverDoorTimer chan<- bool, rr resolvedRequests) {
+	state.Floor = floor
 	elevatorio.SetFloorIndicator(floor)
-	if elevator.Behavior == models.Moving && RequestShouldStop(*elevator, orders) {
+	if state.Behavior == elevator.Moving && RequestShouldStop(*state, orders) {
 		elevatorio.SetMotorDirection((0))
 		elevatorio.SetDoorOpenLamp(true)
-		RequestClearAtCurrentFloor(*elevator, &orders, resolvedRequests)
+		requestClearAtCurrentFloor(*state, &orders, rr)
 		recieverDoorTimer <- true
 	}
 }
 
-func HandleRequestButtonEvent(elevator models.ElevatorState, button models.ButtonType) {
-
-}
-
 // When timer is done, close the door, and go in desired direction.
-func HandleDoorTimerEvent(elevator *models.ElevatorState, orders models.Orders, recieverDoorTimer chan<- bool, resolvedRequests chan<- models.RequestMessage) {
-	if (*elevator).Behavior == models.DoorOpen {
-		RequestChooseDirection(elevator, orders, recieverDoorTimer)
-		if elevator.Behavior == models.DoorOpen {
+func handleDoorTimerEvent(state *elevator.State, orders elevator.Order, recieverDoorTimer chan<- bool, rr resolvedRequests) {
+	if (*state).Behavior == elevator.DoorOpen {
+		requestChooseDirection(state, orders, recieverDoorTimer)
+		if state.Behavior == elevator.DoorOpen {
 			recieverDoorTimer <- true
-			RequestClearAtCurrentFloor(*elevator, &orders, resolvedRequests)
+			requestClearAtCurrentFloor(*state, &orders, rr)
 		} else {
 			elevatorio.SetDoorOpenLamp(false)
-			elevatorio.SetMotorDirection(elevator.Direction)
+			elevatorio.SetMotorDirection(state.Direction)
 		}
 	}
 }
 
-func OpenDoor(elevator *models.ElevatorState) {
+func openDoor(state *elevator.State) {
 	log.Printf("[elevatorfsm] Door open\n")
 	elevatorio.SetDoorOpenLamp(true)
-	elevator.Behavior = models.DoorOpen
+	state.Behavior = elevator.DoorOpen
 }
 
-func EmergencyStop(elevator *models.ElevatorState) {
+func emergencyStop(state *elevator.State) {
 	log.Printf("[elevatorfsm] Stop button not implemented :(\n")
 }
 
 // Little bit inspired by the given C-code :)
-func RequestChooseDirection(e *models.ElevatorState, orders models.Orders, recieverDoorTimer chan<- bool) {
+func requestChooseDirection(e *elevator.State, orders elevator.Order, recieverDoorTimer chan<- bool) {
 	switch e.Direction {
-	case models.Up:
-		if RequestAbove(*e, orders) {
-			e.Direction = models.Up
-			e.Behavior = models.Moving
-		} else if RequestHere(*e, orders) {
-			e.Direction = models.Stop
+	case elevator.Up:
+		if requestAbove(*e, orders) {
+			e.Direction = elevator.Up
+			e.Behavior = elevator.Moving
+		} else if requestHere(*e, orders) {
+			e.Direction = elevator.Stop
 			recieverDoorTimer <- true
 
-		} else if RequestBelow(*e, orders) {
-			e.Direction = models.Down
-			e.Behavior = models.Moving
+		} else if requestBelow(*e, orders) {
+			e.Direction = elevator.Down
+			e.Behavior = elevator.Moving
 		} else {
-			e.Direction = models.Stop
-			e.Behavior = models.Idle
+			e.Direction = elevator.Stop
+			e.Behavior = elevator.Idle
 		}
 
-	case models.Down:
-		if RequestBelow(*e, orders) {
-			e.Direction = models.Down
-			e.Behavior = models.Moving
-		} else if RequestHere(*e, orders) {
-			e.Direction = models.Stop
+	case elevator.Down:
+		if requestBelow(*e, orders) {
+			e.Direction = elevator.Down
+			e.Behavior = elevator.Moving
+		} else if requestHere(*e, orders) {
+			e.Direction = elevator.Stop
 			recieverDoorTimer <- true
-		} else if RequestAbove(*e, orders) {
-			e.Direction = models.Up
-			e.Behavior = models.Moving
+		} else if requestAbove(*e, orders) {
+			e.Direction = elevator.Up
+			e.Behavior = elevator.Moving
 		} else {
-			e.Direction = models.Stop
-			e.Behavior = models.Idle
+			e.Direction = elevator.Stop
+			e.Behavior = elevator.Idle
 		}
 
-	case models.Stop:
-		if RequestHere(*e, orders) {
-			e.Direction = models.Stop
+	case elevator.Stop:
+		if requestHere(*e, orders) {
+			e.Direction = elevator.Stop
 			recieverDoorTimer <- true
-		} else if RequestAbove(*e, orders) {
-			e.Direction = models.Up
-			e.Behavior = models.Moving
-		} else if RequestBelow(*e, orders) {
-			e.Direction = models.Down
-			e.Behavior = models.Moving
+		} else if requestAbove(*e, orders) {
+			e.Direction = elevator.Up
+			e.Behavior = elevator.Moving
+		} else if requestBelow(*e, orders) {
+			e.Direction = elevator.Down
+			e.Behavior = elevator.Moving
 		} else {
-			e.Direction = models.Stop
-			e.Behavior = models.Idle
+			e.Direction = elevator.Stop
+			e.Behavior = elevator.Idle
 		}
 	}
 }
 
-func RequestAbove(e models.ElevatorState, orders models.Orders) bool {
-	if e.Floor >= (int(models.NumFloors) - 1) {
+func requestAbove(e elevator.State, orders elevator.Order) bool {
+	if e.Floor >= elevator.NumFloors-1 {
 		return false
 	} //Already at top floor
 
-	for i := (e.Floor + 1); i < int(models.NumFloors); i++ {
+	for i := (e.Floor + 1); i < elevator.NumFloors; i++ {
 		for j := range orders[e.Floor] {
 			if orders[i][j] {
 				return true
@@ -142,7 +131,7 @@ func RequestAbove(e models.ElevatorState, orders models.Orders) bool {
 	return false
 }
 
-func RequestHere(e models.ElevatorState, orders models.Orders) bool {
+func requestHere(e elevator.State, orders elevator.Order) bool {
 	for _, order := range orders[e.Floor] {
 		if order {
 			return true
@@ -151,7 +140,7 @@ func RequestHere(e models.ElevatorState, orders models.Orders) bool {
 	return false
 }
 
-func RequestBelow(e models.ElevatorState, orders models.Orders) bool {
+func requestBelow(e elevator.State, orders elevator.Order) bool {
 	if e.Floor == 0 {
 		return false
 	} // Already at bottom floor
@@ -166,64 +155,63 @@ func RequestBelow(e models.ElevatorState, orders models.Orders) bool {
 
 }
 
-func RequestClearAtCurrentFloor(e models.ElevatorState, orders *models.Orders, resolvedRequests chan<- models.RequestMessage) {
+func requestClearAtCurrentFloor(e elevator.State, orders *elevator.Order, rr resolvedRequests) {
 	//Definisjon. True: Alle ordre skal fjernes fra etasjen (alle går på). False: Bare de i samme retning.
 	if EverybodyGoesOn {
 		for j := range len((*orders)[e.Floor]) {
 			(*orders)[e.Floor][j] = false
-			sendResolvedRequestsHallUp(e, resolvedRequests)
-			sendResolvedRequestsHallDown(e, resolvedRequests)
-			sendResolvedRequestsCabCall(e, resolvedRequests)
+			rr(elevator.HallUp, e.Floor)
+			rr(elevator.HallDown, e.Floor)
+			rr(elevator.Cab, e.Floor)
 		}
 	} else {
-		(*orders)[e.Floor][models.Cab] = false
-		sendResolvedRequestsCabCall(e, resolvedRequests)
+		(*orders)[e.Floor][elevator.Cab] = false
+		rr(elevator.Cab, e.Floor)
 
 		switch e.Direction {
-		case models.Up:
-			if !RequestAbove(e, (*orders)) && !(*orders)[e.Floor][models.HallUp] {
-				(*orders)[e.Floor][models.HallDown] = false
-				sendResolvedRequestsHallDown(e, resolvedRequests)
+		case elevator.Up:
+			if !requestAbove(e, (*orders)) && !(*orders)[e.Floor][elevator.HallUp] {
+				(*orders)[e.Floor][elevator.HallDown] = false
+				rr(elevator.HallDown, e.Floor)
 			}
-			(*orders)[e.Floor][models.HallUp] = false
-			sendResolvedRequestsHallUp(e, resolvedRequests)
+			(*orders)[e.Floor][elevator.HallUp] = false
+			rr(elevator.HallUp, e.Floor)
 
-		case models.Down:
-			if !RequestBelow(e, (*orders)) && !(*orders)[e.Floor][models.HallDown] {
-				(*orders)[e.Floor][models.HallUp] = false
-				sendResolvedRequestsHallUp(e, resolvedRequests)
+		case elevator.Down:
+			if !requestBelow(e, (*orders)) && !(*orders)[e.Floor][elevator.HallDown] {
+				(*orders)[e.Floor][elevator.HallUp] = false
+				rr(elevator.HallUp, e.Floor)
 			}
-			(*orders)[e.Floor][models.HallDown] = false
-			sendResolvedRequestsHallDown(e, resolvedRequests)
+			(*orders)[e.Floor][elevator.HallDown] = false
+			rr(elevator.HallDown, e.Floor)
 
-		case models.Stop:
+		case elevator.Stop:
 			fallthrough
 		default:
-			(*orders)[e.Floor][models.HallDown] = false
-			(*orders)[e.Floor][models.HallUp] = false
-			sendResolvedRequestsHallDown(e, resolvedRequests)
-			sendResolvedRequestsHallUp(e, resolvedRequests)
-
+			(*orders)[e.Floor][elevator.HallDown] = false
+			(*orders)[e.Floor][elevator.HallUp] = false
+			rr(elevator.HallDown, e.Floor)
+			rr(elevator.HallUp, e.Floor)
 		}
 
 	}
 
 }
 
-func RequestShouldStop(e models.ElevatorState, orders models.Orders) bool {
+func RequestShouldStop(e elevator.State, orders elevator.Order) bool {
 	switch e.Direction {
-	case models.Down:
-		return orders[e.Floor][models.HallDown] || orders[e.Floor][models.Cab] || !RequestBelow(e, orders)
-	case models.Up:
-		return orders[e.Floor][models.HallUp] || orders[e.Floor][models.Cab] || !RequestAbove(e, orders)
+	case elevator.Down:
+		return orders[e.Floor][elevator.HallDown] || orders[e.Floor][elevator.Cab] || !requestBelow(e, orders)
+	case elevator.Up:
+		return orders[e.Floor][elevator.HallUp] || orders[e.Floor][elevator.Cab] || !requestAbove(e, orders)
 	default:
 		return true
 	}
 }
 
-// Decision: Have to decide if everyone will get in the elevator, even tho they might be going in the opposite direction.
+// Decision: Have to decide if everyone will get in the state, even tho they might be going in the opposite direction.
 
-func RequestShouldClearImmediatly(e models.ElevatorState, orders models.Orders) bool {
+func RequestShouldClearImmediatly(e elevator.State, orders elevator.Order) bool {
 	if EverybodyGoesOn {
 		for i := range len(orders[e.Floor]) {
 			if orders[e.Floor][i] {
@@ -233,12 +221,12 @@ func RequestShouldClearImmediatly(e models.ElevatorState, orders models.Orders) 
 		return false
 	} else {
 		switch e.Direction {
-		case models.Up:
-			return orders[e.Floor][models.HallUp]
-		case models.Down:
-			return orders[e.Floor][models.HallDown]
-		case models.Stop:
-			return orders[e.Floor][models.Cab]
+		case elevator.Up:
+			return orders[e.Floor][elevator.HallUp]
+		case elevator.Down:
+			return orders[e.Floor][elevator.HallDown]
+		case elevator.Stop:
+			return orders[e.Floor][elevator.Cab]
 		default:
 			return false
 		}
@@ -246,7 +234,7 @@ func RequestShouldClearImmediatly(e models.ElevatorState, orders models.Orders) 
 }
 
 // Debug functions.
-func printOrders(orders models.Orders) {
+func printOrders(orders elevator.Order) {
 	// Iterate through the outer slice (rows)
 	log.Printf("Floor\t Up\t Down\t Cab\n")
 	for i := range len(orders) {
@@ -260,39 +248,8 @@ func printOrders(orders models.Orders) {
 	}
 }
 
-func printElevatorState(elevator models.ElevatorState) {
-	log.Printf("[elevatorfsm]\n\nFloor: %d\n", elevator.Floor)
-	log.Printf("Behavior: %d\n", elevator.Behavior)
-	log.Printf("Direction: %d\n\n", elevator.Direction)
-}
-
-func initOrders() models.Orders {
-	var orders models.Orders = make(models.Orders, models.NumFloors)
-	for i := 0; i < int(models.NumFloors); i++ {
-		for j := 0; j < 3; j++ {
-			orders[i][j] = false
-		}
-	}
-	return orders
-}
-
-func sendResolvedRequestsHallUp(e models.ElevatorState, resolvedRequests chan<- models.RequestMessage) {
-	o := models.Origin{Source: models.Hall{}, Floor: e.Floor, ButtonType: models.HallUp}
-	r := models.Request{Origin: o, Status: models.Absent}
-	resolvedRequests <- models.RequestMessage{Source: e.Id, Request: r}
-	log.Printf("[Elevatorfsm] Resolved request HallUp from floor: %d", e.Floor)
-}
-func sendResolvedRequestsHallDown(e models.ElevatorState, resolvedRequests chan<- models.RequestMessage) {
-	o := models.Origin{Source: models.Hall{}, Floor: e.Floor, ButtonType: models.HallDown}
-	r := models.Request{Origin: o, Status: models.Absent}
-	resolvedRequests <- models.RequestMessage{Source: e.Id, Request: r}
-	log.Printf("[Elevatorfsm] Resolved request HallDown from floor: %d", e.Floor)
-
-}
-func sendResolvedRequestsCabCall(e models.ElevatorState, resolvedRequests chan<- models.RequestMessage) {
-	o := models.Origin{Source: models.Elevator{Id: e.Id}, Floor: e.Floor, ButtonType: models.Cab}
-	r := models.Request{Origin: o, Status: models.Absent}
-	resolvedRequests <- models.RequestMessage{Source: e.Id, Request: r}
-	log.Printf("[Elevatorfsm] Resolved cab request from floor: %d", e.Floor)
-
+func printElevatorState(state elevator.State) {
+	log.Printf("[elevatorfsm]\n\nFloor: %d\n", state.Floor)
+	log.Printf("Behavior: %d\n", state.Behavior)
+	log.Printf("Direction: %d\n\n", state.Direction)
 }

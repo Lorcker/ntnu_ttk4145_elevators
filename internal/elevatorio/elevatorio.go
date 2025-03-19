@@ -7,41 +7,43 @@ import (
 	"sync"
 	"time"
 
-	"group48.ttk4145.ntnu/elevators/internal/models"
+	"group48.ttk4145.ntnu/elevators/internal/models/elevator"
+	"group48.ttk4145.ntnu/elevators/internal/models/message"
+	"group48.ttk4145.ntnu/elevators/internal/models/request"
 )
 
 const _pollRate = 20 * time.Millisecond
 
 var _initialized bool = false
-var _numFloors int = int(models.NumFloors)
+var _numFloors int = int(elevator.NumFloors)
 var _mtx sync.Mutex
 var _conn net.Conn
-var _Id models.Id
+var _local elevator.Id
 
-func Init(addr string, local models.Id) {
+func Init(addr string, local elevator.Id) {
 	if _initialized {
 		fmt.Println("Driver already initialized!")
 		return
 	}
-	_Id = local
 	_mtx = sync.Mutex{}
 	var err error
 	_conn, err = net.Dial("tcp", addr)
 	if err != nil {
 		panic(err.Error())
 	}
+	_local = local
 	_initialized = true
 }
 
-func SetMotorDirection(dir models.MotorDirection) {
+func SetMotorDirection(dir elevator.MotorDirection) {
 	write([4]byte{1, byte(dir), 0, 0})
 }
 
-func SetButtonLamp(button models.ButtonType, floor int, value bool) {
-	write([4]byte{2, byte(button), byte(floor), toByte(value)})
+func SetButtonLamp(btn elevator.ButtonType, floor elevator.Floor, value bool) {
+	write([4]byte{2, byte(btn), byte(floor), toByte(value)})
 }
 
-func SetFloorIndicator(floor int) {
+func SetFloorIndicator(floor elevator.Floor) {
 	write([4]byte{3, byte(floor), 0, 0})
 }
 
@@ -53,36 +55,40 @@ func SetStopLamp(value bool) {
 	write([4]byte{5, toByte(value), 0, 0})
 }
 
-func PollRequests(receiver chan<- models.RequestMessage) {
+func PollNewRequests(receiver chan<- message.RequestStateUpdate) {
 	prev := make([][3]bool, _numFloors)
 	for {
 		time.Sleep(_pollRate)
 		for f := 0; f < _numFloors; f++ {
-			for b := models.ButtonType(0); b < 3; b++ {
-				v := GetButton(b, f)
-				if v != prev[f][b] && v != false {
+			for b := elevator.ButtonType(0); b < 3; b++ {
+				wasPressed := GetButton(b, f)
+				if wasPressed != prev[f][b] && wasPressed {
 					log.Printf("[elevatorio] Button %v at floor %v pressed", b, f)
-					var s models.Source
-					if models.Cab == b {
-						s = models.Elevator{_Id}
-					} else {
-						s = models.Hall{}
+
+					var req request.Request
+					switch b {
+					case elevator.HallUp:
+						req = request.NewHallRequest(elevator.Floor(f), request.Up, request.Unconfirmed)
+					case elevator.HallDown:
+						req = request.NewHallRequest(elevator.Floor(f), request.Down, request.Unconfirmed)
+					case elevator.Cab:
+						req = request.NewCabRequest(elevator.Floor(f), _local, request.Unconfirmed)
 					}
-					receiver <- models.RequestMessage{_Id, models.Request{models.Origin{s, f, b}, models.Unconfirmed}}
+					receiver <- message.RequestStateUpdate{Source: _local, Request: req}
 				}
-				prev[f][b] = v
+				prev[f][b] = wasPressed
 			}
 		}
 	}
 }
 
-func PollFloorSensor(receiver chan<- int) {
+func PollFloorSensor(receiver chan<- message.FloorSensor) {
 	prev := -1
 	for {
 		time.Sleep(_pollRate)
 		v := GetFloor()
 		if v != prev && v != -1 {
-			receiver <- v
+			receiver <- message.FloorSensor{Floor: elevator.Floor(v)}
 		}
 		prev = v
 	}
@@ -100,19 +106,19 @@ func PollStopButton(receiver chan<- bool) {
 	}
 }
 
-func PollObstructionSwitch(receiver chan<- bool) {
+func PollObstructionSwitch(receiver chan<- message.ObstructionSwitch) {
 	prev := false
 	for {
 		time.Sleep(_pollRate)
 		v := GetObstruction()
 		if v != prev {
-			receiver <- v
+			receiver <- message.ObstructionSwitch{}
 		}
 		prev = v
 	}
 }
 
-func GetButton(button models.ButtonType, floor int) bool {
+func GetButton(button elevator.ButtonType, floor int) (isPressed bool) {
 	a := read([4]byte{6, byte(button), byte(floor), 0})
 	return toBool(a[1])
 }
