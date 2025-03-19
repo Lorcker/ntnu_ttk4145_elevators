@@ -102,5 +102,4 @@ func clearRequest(id elevator.Id, btn elevator.ButtonType, floor elevator.Floor,
 		Request: req,
 	}
 	c <- msg
-	log.Printf("[elevatordriver] Sent request clear message: %v", msg)
 }
