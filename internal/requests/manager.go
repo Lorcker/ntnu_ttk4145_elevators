@@ -76,10 +76,6 @@ func (rm *requestManager) processUnknown(msg message.RequestStateUpdate) request
 
 // processAbsent processes a request with an Absent status.
 func (rm *requestManager) processAbsent(msg message.RequestStateUpdate) request.Request {
-	if msg.Request.Status != request.Absent {
-		return msg.Request
-	}
-
 	storedRequest := rm.store[msg.Request.Origin]
 	if storedRequest.Status == request.Confirmed || storedRequest.Status == request.Unknown {
 		// Acknowledgement from the other peers is not needed,
@@ -93,10 +89,6 @@ func (rm *requestManager) processAbsent(msg message.RequestStateUpdate) request.
 
 // processUnconfirmed processes a request with an Unconfirmed status.
 func (rm *requestManager) processUnconfirmed(msg message.RequestStateUpdate) request.Request {
-	if msg.Request.Status != request.Unconfirmed {
-		return msg.Request
-	}
-
 	storedRequest := rm.store[msg.Request.Origin]
 	if storedRequest.Status == request.Confirmed {
 		// The stored version is already confirmed, so we return it as is
@@ -122,10 +114,6 @@ func (rm *requestManager) processUnconfirmed(msg message.RequestStateUpdate) req
 
 // processConfirmed processes a request with a Confirmed status.
 func (rm *requestManager) processConfirmed(msg message.RequestStateUpdate) request.Request {
-	if msg.Request.Status != request.Confirmed {
-		return msg.Request
-	}
-
 	storedRequest := rm.store[msg.Request.Origin]
 
 	if storedRequest.Status != request.Unconfirmed {
