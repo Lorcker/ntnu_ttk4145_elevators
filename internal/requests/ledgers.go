@@ -1,6 +1,8 @@
 package requests
 
 import (
+	"log"
+
 	"group48.ttk4145.ntnu/elevators/internal/models/elevator"
 	"group48.ttk4145.ntnu/elevators/internal/models/request"
 )
@@ -35,9 +37,21 @@ func (lm *ledgerTracker) resetLedgers(origin request.Origin) {
 	lm.ledgers[origin] = make(map[elevator.Id]bool)
 }
 
-// haveAllAlivePeersAcknowledged checks if all alive peers have acknowledged the request.
-func (lm *ledgerTracker) haveAllAlivePeersAcknowledged(o request.Origin, alive []elevator.Id) bool {
+// isMessageAcknowledged checks if all alive peers have acknowledged the request.
+//
+// A request is acknowledged if one of the following conditions is met:
+//   - A hall request is acknowledged by all alive peers and at least one other peer.
+//   - A cab request is acknowledged by all alive peers (can be only the local elevator).
+func (lm *ledgerTracker) isMessageAcknowledged(o request.Origin, alive []elevator.Id) bool {
+	log.Printf("Debug: Origin: %v, Alive: %v, Ledger: %v", o, alive, lm.ledgers[o])
 	if len(lm.ledgers[o]) != len(alive) {
+		return false
+	}
+
+	if _, ok := o.(request.Hall); ok && len(lm.ledgers[o]) < 2 {
+		// Hall requests must be acknowledged by all alive peers and at least one other peer.
+		// This is because of the button light contract.
+		// When the local elevator is disconnected, the no redundancy would be present.
 		return false
 	}
 

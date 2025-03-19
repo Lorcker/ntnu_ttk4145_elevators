@@ -106,7 +106,7 @@ func (rm *requestManager) processUnconfirmed(msg message.RequestStateUpdate) req
 	rm.ledgerTracker.addLedger(msg.Request.Origin, msg.Source)
 	rm.ledgerTracker.addLedger(msg.Request.Origin, rm.local)
 
-	if rm.ledgerTracker.haveAllAlivePeersAcknowledged(msg.Request.Origin, rm.alivePeers) {
+	if rm.ledgerTracker.isMessageAcknowledged(msg.Request.Origin, rm.alivePeers) {
 		storedRequest.Status = request.Confirmed
 
 		// Ledgers are reset as the next time the request reaches the Unconfirmed state,
