@@ -34,7 +34,7 @@ func RunComms(
 	toHealthMonitor chan<- message.PeerHeartbeat) {
 
 	var sendTicker = time.NewTicker(SendInterval)
-	var internalEs = elevator.State{}
+	var internalEsBuffer = make([]elevator.State, 0)
 	var registry = newRequestRegistry()
 
 	sendUdp := make(chan udpMessage)
@@ -45,9 +45,12 @@ func RunComms(
 	for {
 		select {
 		case msg := <-fromDriver:
-			if internalEs != msg.State {
+			if len(internalEsBuffer) == 0 {
+				internalEsBuffer = append(internalEsBuffer, msg.State)
+				log.Printf("[comms] Received initial local elevator state update from [driver]: %v", msg)
+			} else if internalEsBuffer[0] != msg.State {
 				log.Printf("[comms] Received new local elevator state update from [driver]: %v", msg)
-				internalEs = msg.State
+				internalEsBuffer[0] = msg.State
 			}
 
 		case msg := <-fromRequests:
@@ -61,13 +64,15 @@ func RunComms(
 			}
 
 		case <-sendTicker.C:
-			if internalEs == (elevator.State{}) {
+			if len(internalEsBuffer) == 0 {
+				// No internal elevator state to send yet
 				continue
 			}
+
 			u := udpMessage{
 				Source:   local,
 				Registry: registry,
-				EState:   internalEs,
+				EState:   internalEsBuffer[0],
 			}
 			sendUdp <- u
 
