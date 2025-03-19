@@ -62,13 +62,16 @@ for i in {1..2}; do
     # Create configuration file
     printf "$CONFIG_TEMPLATE" $SIMULATOR_PORT $i $GO_PORT > $CONFIG_FILE
 
+    # Calculate positions
+    Y_OFFSET=$(( (i - 1) * 300 ))
+
     # Start the simulator in a new terminal
-    xterm -hold -geometry 200x40 -e "\"$SIMULATOR_EXECUTABLE\" --port $SIMULATOR_PORT" &
+    xterm -hold -geometry 50x20+0+$Y_OFFSET -e "\"$SIMULATOR_EXECUTABLE\" --port $SIMULATOR_PORT" &
     SIMULATOR_PID=$!
     echo "Started simulator on port $SIMULATOR_PORT with PID $SIMULATOR_PID"
 
     # Start the Go program in a new terminal
-    xterm -hold -geometry 200x40 -e "go run \"$ELEVATOR_PROGRAM\" -config=\"$CONFIG_FILE\"" &
+    xterm -hold -geometry 150x20+400+$Y_OFFSET -e "go run \"$ELEVATOR_PROGRAM\" -config=\"$CONFIG_FILE\"" &
     GO_PID=$!
     echo "Started Go program instance $i with PID $GO_PID and config $CONFIG_FILE"
 
