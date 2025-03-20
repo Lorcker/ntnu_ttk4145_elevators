@@ -115,15 +115,15 @@ func (c Cab) String() string {
 func (s Status) String() string {
 	switch s {
 	case Unknown:
-		return "Unknown"
+		return "?"
 	case Absent:
-		return "Absent"
+		return "A"
 	case Unconfirmed:
-		return "Unconfirmed"
+		return "U"
 	case Confirmed:
-		return "Confirmed"
+		return "C"
 	default:
-		return "Unknown"
+		return "?"
 	}
 }
 
@@ -131,10 +131,10 @@ func (s Status) String() string {
 func (d Direction) String() string {
 	switch d {
 	case Up:
-		return "Up"
+		return "U"
 	case Down:
-		return "Down"
+		return "D"
 	default:
-		return "Unknown"
+		return "?"
 	}
 }

@@ -1,6 +1,7 @@
 package comms
 
 import (
+	"fmt"
 	"log"
 	"strconv"
 
@@ -57,6 +58,10 @@ func (r *requestRegistry) initNewCab(id string) {
 // update takes in a internal msg from the request module and replaces the stored information
 // As the msg were validated by the request module no checks on the status information are needed
 func (r *requestRegistry) update(req request.Request) {
+	if req.Status == request.Unknown {
+		// Ignore unknown requests as they add no value
+		return
+	}
 	floor := req.Origin.GetFloor()
 
 	if request.IsFromHall(req) {
@@ -114,10 +119,12 @@ func (r *requestRegistry) diff(peer elevator.Id, other requestRegistry) []messag
 
 		if !ok {
 			for f := elevator.Floor(0); f < elevator.NumFloors; f++ {
-				diff = append(diff, message.RequestStateUpdate{
-					Source:  peer,
-					Request: request.NewCabRequest(f, elevator.Id(idI), otherCab[f]),
-				})
+				if isDifferent(request.Unknown, otherCab[f]) {
+					diff = append(diff, message.RequestStateUpdate{
+						Source:  peer,
+						Request: request.NewCabRequest(f, elevator.Id(idI), otherCab[f]),
+					})
+				}
 			}
 			continue
 		}
@@ -137,9 +144,19 @@ func (r *requestRegistry) diff(peer elevator.Id, other requestRegistry) []messag
 
 // isDifferent checks if two request status are different
 // If both are Unconfirmed the function returns true to enable acknoledgement of the request
+// If the external status is Unkown we ignore it
 func isDifferent(a, b request.Status) bool {
 	if a == request.Unconfirmed && b == request.Unconfirmed {
 		return true
 	}
+	if b == request.Unknown {
+		return false
+	}
 	return a != b
+}
+
+// String returns a string representation of the request registry
+func (r *requestRegistry) String() string {
+	str := fmt.Sprintf("HallUp: %v, HallDown: %v, Cabs: %v", r.HallUp, r.HallDown, r.Cab)
+	return str
 }
