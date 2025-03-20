@@ -20,17 +20,11 @@ func getBasePath() string {
 // Path to the hall_request_assigner executable
 var pathToAssigner = filepath.Join(getBasePath(), "../../external/assigner/hall_request_assigner")
 
-// jsonState struct used for json marshalling and unmarshaling
-//
-// It is used to represent the state of the system as expected by the assigner executable
+// jsonState struct is used for json marshalling and unmarshaling
 type jsonState = struct {
 	HallRequests hallRequests        `json:"hallRequests"`
 	States       map[string]jsonElev `json:"states"`
 }
-
-// jsonElev struct used for json marshalling and unmarshaling
-//
-// It is used to represent the state of an jsonElev as expected by the assigner executable
 type jsonElev = struct {
 	Behavior    string      `json:"behavior"`
 	Floor       int         `json:"floor"`
@@ -38,14 +32,11 @@ type jsonElev = struct {
 	CabRequests cabRequests `json:"cabRequests"`
 }
 
-// dirToString converts a motor direction to the corresponding string
 var dirToString = map[elevator.MotorDirection]string{
 	elevator.Up:   "up",
 	elevator.Down: "down",
 	elevator.Stop: "stop",
 }
-
-// behaviorToString converts an elevator behavior to the corresponding string
 var behaviorToString = map[elevator.Behavior]string{
 	elevator.Idle:     "idle",
 	elevator.Moving:   "moving",
@@ -57,9 +48,8 @@ var behaviorToString = map[elevator.Behavior]string{
 // It sends the state of the system to the hall_request_assigner executable and returns the orders.
 // This approach is used to avoid having to implement the assigner logic in Go which would lead to code duplication and potential bugs.
 func calculateOrders(hr hallRequests, cr map[elevator.Id]cabRequests, elevators map[elevator.Id]elevator.State) map[elevator.Id]elevator.Order {
-	jsonState := convertToJson(hr, cr, elevators)
+	jsonState := marshal(hr, cr, elevators)
 
-	// Send jsonState to the assigner
 	cmd := exec.Command(pathToAssigner, "-i", jsonState, "--includeCab")
 
 	out, err := cmd.Output()
@@ -67,11 +57,11 @@ func calculateOrders(hr hallRequests, cr map[elevator.Id]cabRequests, elevators 
 		log.Fatalf("[orderserver] Error running hall_request_assigner: %v", err)
 	}
 
-	return convertFromJson(string(out))
+	return unmarshal(string(out))
 }
 
-// convertFromJson converts a json string to a map of orders
-func convertFromJson(j string) map[elevator.Id]elevator.Order {
+// unmarshal converts a json string to a map of orders
+func unmarshal(j string) map[elevator.Id]elevator.Order {
 	var o map[string]elevator.Order
 	err := json.Unmarshal([]byte(j), &o)
 	if err != nil {
@@ -89,8 +79,8 @@ func convertFromJson(j string) map[elevator.Id]elevator.Order {
 	return orders
 }
 
-// convertToJson converts the state of the system to a json string
-func convertToJson(hr hallRequests, cr map[elevator.Id]cabRequests, elevators map[elevator.Id]elevator.State) string {
+// marshal converts the state of the system to a json string
+func marshal(hr hallRequests, cr map[elevator.Id]cabRequests, elevators map[elevator.Id]elevator.State) string {
 	jsonState := jsonState{
 		HallRequests: hr,
 		States:       make(map[string]jsonElev),
