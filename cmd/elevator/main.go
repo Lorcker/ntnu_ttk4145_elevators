@@ -92,10 +92,6 @@ func main() {
 		localId,
 	)
 
-	requestSubscribers := []chan<- message.RequestStateUpdate{
-		requestStateNotifyToOrders,
-		requestStateNotifyToComms,
-	}
 	// The [requests] module is responsible for managing the state of the requests.
 	// This includes the acknowledgment of other peers to ensure redundancy.
 	// It takes as input:
@@ -109,7 +105,8 @@ func main() {
 		localId,
 		requestStateUpdateToRequest,
 		alivePeersNotifyToRequests,
-		requestSubscribers,
+		requestStateNotifyToComms,
+		requestStateNotifyToOrders,
 	)
 
 	// The [orders] module is responsible for managing the orders and calculating the orders for the local elevator.

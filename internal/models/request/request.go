@@ -2,6 +2,7 @@ package request
 
 import (
 	"fmt"
+	"log"
 
 	"group48.ttk4145.ntnu/elevators/internal/models/elevator"
 )
@@ -23,6 +24,7 @@ const (
 type Origin interface {
 	isSource()
 	GetFloor() elevator.Floor
+	GetButtonType() elevator.ButtonType
 }
 
 type Hall struct {
@@ -41,6 +43,18 @@ func (h Hall) GetFloor() elevator.Floor {
 	return h.Floor
 }
 
+func (h Hall) GetButtonType() elevator.ButtonType {
+	switch h.Direction {
+	case Up:
+		return elevator.HallUp
+	case Down:
+		return elevator.HallDown
+	default:
+		log.Fatal("Hall direction of the origin has an illegal value")
+		return elevator.HallUp // Default to avoid compilation error
+	}
+}
+
 func (Hall) isSource() {}
 
 type Cab struct {
@@ -50,6 +64,10 @@ type Cab struct {
 
 func (c Cab) GetFloor() elevator.Floor {
 	return c.Floor
+}
+
+func (c Cab) GetButtonType() elevator.ButtonType {
+	return elevator.Cab
 }
 
 func (Cab) isSource() {}
@@ -97,15 +115,15 @@ func (c Cab) String() string {
 func (s Status) String() string {
 	switch s {
 	case Unknown:
-		return "Unknown"
+		return "?"
 	case Absent:
-		return "Absent"
+		return "A"
 	case Unconfirmed:
-		return "Unconfirmed"
+		return "U"
 	case Confirmed:
-		return "Confirmed"
+		return "C"
 	default:
-		return "Unknown"
+		return "?"
 	}
 }
 
@@ -113,10 +131,10 @@ func (s Status) String() string {
 func (d Direction) String() string {
 	switch d {
 	case Up:
-		return "Up"
+		return "U"
 	case Down:
-		return "Down"
+		return "D"
 	default:
-		return "Unknown"
+		return "?"
 	}
 }

@@ -29,12 +29,20 @@ func (lm *ledgerTracker) addLedger(origin request.Origin, id elevator.Id) {
 	if _, ok := lm.ledgers[origin]; !ok {
 		lm.ledgers[origin] = make(map[elevator.Id]bool)
 	}
+
+	if lm.ledgers[origin][id] {
+		// The ledger already exists, do not add it again
+		return
+	}
+
 	lm.ledgers[origin][id] = true
+	log.Printf("[requests] [manager] [ledgers] Added ledger for %v with id %v", origin, id)
 }
 
 // resetLedgers resets the ledgers for the origin.
 func (lm *ledgerTracker) resetLedgers(origin request.Origin) {
 	lm.ledgers[origin] = make(map[elevator.Id]bool)
+	log.Printf("[requests] [manager] [ledgers] Reset ledgers for %v", origin)
 }
 
 // isMessageAcknowledged checks if all alive peers have acknowledged the request.
@@ -43,7 +51,6 @@ func (lm *ledgerTracker) resetLedgers(origin request.Origin) {
 //   - A hall request is acknowledged by all alive peers and at least one other peer.
 //   - A cab request is acknowledged by all alive peers (can be only the local elevator).
 func (lm *ledgerTracker) isMessageAcknowledged(o request.Origin, alive []elevator.Id) bool {
-	log.Printf("Debug: Origin: %v, Alive: %v, Ledger: %v", o, alive, lm.ledgers[o])
 	if len(lm.ledgers[o]) != len(alive) {
 		return false
 	}

@@ -2,6 +2,7 @@
 package orders
 
 import (
+	"fmt"
 	"log"
 	"reflect"
 	"time"
@@ -38,26 +39,20 @@ func RunOrderServer(
 	for {
 		select {
 		case msg := <-requestUpdate:
-			if msg.Request.Status == request.Unconfirmed || msg.Request.Status == request.Unknown {
-				// These are not relevant for the order sever
+			isUnRelevant := msg.Request.Status == request.Unconfirmed || msg.Request.Status == request.Unknown
+			if isUnRelevant {
 				continue
 			}
+			cache.AddRequest(msg.Request)
 
-			if cache.AddRequest(msg.Request) {
-				log.Printf("[orderserver] Request cache changed to:\n\tHallRequests: %v\n\tCabRequests: %v", cache.Hr, cache.Cr)
-			}
 		case msg := <-aliveListUpdate:
-			log.Printf("[orderserver] Received alive status: %v", msg.Peers)
 			cache.ProcessAliveUpdate(msg.Peers)
 
 		case msg := <-stateUpdate:
-			if cache.AddElevatorState(msg.Elevator, msg.State) {
-				log.Printf("[orderserver] Elevator state cache changed to: %v", cache.States)
-			}
+			cache.AddElevatorState(msg.Elevator, msg.State)
 
 		case <-orderRefresh.C:
 			if !cache.IsConsistent() {
-				// The cache is not consistent, skip this iteration
 				continue
 			}
 
@@ -67,7 +62,7 @@ func RunOrderServer(
 				continue
 			}
 
-			log.Printf("[orderserver] Derived new orders:\n\tOld: %v\n\tNew: %v", oldOrders, newOrders)
+			logChangedOrders(oldOrders, newOrders)
 			orderUpdates <- message.Order{
 				Order: newOrders[localPeerId],
 			}
@@ -76,4 +71,17 @@ func RunOrderServer(
 		}
 
 	}
+}
+
+// logChangedOrders logs only the orders that have changed
+func logChangedOrders(oldOrders, newOrders map[elevator.Id]elevator.Order) {
+	msg := "[orderserver] Orders changed for elevators:\n"
+	for id, newOrder := range newOrders {
+		msg += fmt.Sprintf("\tElevator %v: ", id)
+		if oldOrder, ok := oldOrders[id]; ok {
+			msg += fmt.Sprintf("%v -> ", elevator.OrderToString(oldOrder))
+		}
+		msg += fmt.Sprintf("%v\n", elevator.OrderToString(newOrder))
+	}
+	log.Print(msg)
 }

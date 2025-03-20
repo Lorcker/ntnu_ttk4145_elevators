@@ -18,49 +18,38 @@ func RunRequestServer(
 	local elevator.Id,
 	requestStateUpdates <-chan message.RequestStateUpdate,
 	currentAlivePeers <-chan message.AlivePeersUpdate,
-	subscribers []chan<- message.RequestStateUpdate) {
+	notifyComms chan<- message.RequestStateUpdate,
+	notifyOrders chan<- message.RequestStateUpdate) {
 
 	var requestManager = newRequestManager(local)
 
 	for {
 		select {
 		case msg := <-requestStateUpdates:
-			req := requestManager.process(msg)
-			log.Printf("[requests] Processed a new request:\n\tIncoming: %v\n\tProcessed: %v", msg.Request, req)
-
+			req := requestManager.Process(msg)
 			setButtonLighting(local, req)
 
-			for _, s := range subscribers {
-				s <- message.RequestStateUpdate{
-					Source:  local,
-					Request: req,
-				}
+			uMsg := message.RequestStateUpdate{
+				Source:  local,
+				Request: req,
 			}
+			notifyComms <- uMsg
+			notifyOrders <- uMsg
 
 		case ap := <-currentAlivePeers:
-			log.Printf("[requests] Received alive peers: %v", ap)
-			requestManager.alivePeers = ap.Peers
+			requestManager.UpdateAlivePeers(ap.Peers)
 		}
 	}
 }
 
 // setButtonLighting sets the button lighting for the request.
-//
-// If the request is not for the local elevator, the lighting is not set.
 func setButtonLighting(local elevator.Id, req request.Request) {
-	targetState := req.Status == request.Confirmed
-
-	if request.IsCab(req) && req.Origin.(request.Cab).Id == local {
-		elevatorio.SetButtonLamp(elevator.Cab, req.Origin.GetFloor(), targetState)
-		log.Printf("[requests] Set button lamp: %v, %v, %v", elevator.Cab, req.Origin.GetFloor(), targetState)
-	} else if request.IsFromHall(req) {
-		hall := req.Origin.(request.Hall)
-		if hall.Direction == request.Up {
-			elevatorio.SetButtonLamp(elevator.HallUp, hall.Floor, targetState)
-			log.Printf("[requests] Set button lamp: %v, %v, %v", elevator.HallUp, hall.Floor, targetState)
-		} else {
-			elevatorio.SetButtonLamp(elevator.HallDown, hall.Floor, targetState)
-			log.Printf("[requests] Set button lamp: %v, %v, %v", elevator.HallDown, hall.Floor, targetState)
-		}
+	if cab, ok := req.Origin.(request.Cab); ok && cab.Id != local {
+		// The request is for another elevator, do not set the button lighting
+		return
 	}
+
+	targetState := req.Status == request.Confirmed
+	elevatorio.SetButtonLamp(req.Origin.GetButtonType(), req.Origin.GetFloor(), targetState)
+	log.Printf("[requests] Set button lamp: %v, %v, %v", req.Origin.GetButtonType(), req.Origin.GetFloor(), targetState)
 }
