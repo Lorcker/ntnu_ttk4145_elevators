@@ -55,7 +55,7 @@ cleanup() {
 trap cleanup INT
 
 # Create configuration files and start instances
-for i in {1..3}; do
+for i in {1..1}; do
     SIMULATOR_PORT=$((SIMULATOR_BASE_PORT + i))
     CONFIG_FILE="config_$i.json"
 
