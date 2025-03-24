@@ -1,49 +1,50 @@
 package driver
 
 import (
-	"fmt"
 	"log"
 
 	"group48.ttk4145.ntnu/elevators/internal/elevatorio"
 	"group48.ttk4145.ntnu/elevators/internal/models/elevator"
 )
 
-var EverybodyGoesOn bool = false
+const EverybodyGoesOn bool = false
 
 type resolvedRequests func(btn elevator.ButtonType, floor elevator.Floor)
 
+// handleOrderEvent updates the elevator state based on new orders
 func handleOrderEvent(state *elevator.State, orders elevator.Order, recieverDoorTimer chan<- bool, rr resolvedRequests) {
 	switch state.Behavior {
 	case elevator.Idle:
-		requestChooseDirection(state, orders, recieverDoorTimer)
+		requestChooseDirection(state, orders, recieverDoorTimer) // Updates the behaviour and direction
 		if state.Behavior == elevator.DoorOpen {
-			requestClearAtCurrentFloor(*state, &orders, rr)
+			requestClearAtCurrentFloor(*state, &orders, rr) // Clears orders when order comes in at the current floor.
 		} else if state.Behavior == elevator.Moving {
 			elevatorio.SetMotorDirection(state.Direction)
 		}
 
 	case elevator.DoorOpen:
-		if RequestShouldClearImmediatly(*state, orders) {
+		if requestShouldClearImmediatly(*state, orders) {
 			recieverDoorTimer <- true
 			requestClearAtCurrentFloor(*state, &orders, rr)
 		}
 	}
 }
 
-func handleFloorsensorEvent(state *elevator.State, orders elevator.Order, floor elevator.Floor, recieverDoorTimer chan<- bool, rr resolvedRequests) {
+// handleFloorsensorEvent updates the elevator state when arriving at a new floor
+func handleFloorsensorEvent(state *elevator.State, orders elevator.Order, recieverDoorTimer chan<- bool, rr resolvedRequests, floor elevator.Floor) {
 	state.Floor = floor
 	elevatorio.SetFloorIndicator(floor)
-	if state.Behavior == elevator.Moving && RequestShouldStop(*state, orders) {
+	if state.Behavior == elevator.Moving && requestShouldStop(*state, orders) {
 		elevatorio.SetMotorDirection((0))
 		elevatorio.SetDoorOpenLamp(true)
-		requestClearAtCurrentFloor(*state, &orders, rr)
 		recieverDoorTimer <- true
+		requestClearAtCurrentFloor(*state, &orders, rr)
 	}
 }
 
 // When timer is done, close the door, and go in desired direction.
 func handleDoorTimerEvent(state *elevator.State, orders elevator.Order, recieverDoorTimer chan<- bool, rr resolvedRequests) {
-	if (*state).Behavior == elevator.DoorOpen {
+	if state.Behavior == elevator.DoorOpen {
 		requestChooseDirection(state, orders, recieverDoorTimer)
 		if state.Behavior == elevator.DoorOpen {
 			recieverDoorTimer <- true
@@ -61,11 +62,7 @@ func openDoor(state *elevator.State) {
 	state.Behavior = elevator.DoorOpen
 }
 
-func emergencyStop(state *elevator.State) {
-	log.Printf("[elevatorfsm] Stop button not implemented :(\n")
-}
-
-// Little bit inspired by the given C-code :)
+// requestChooseDirection updates the elevator direction and behaviour based on the current orders. Inspired by the given C-code.
 func requestChooseDirection(e *elevator.State, orders elevator.Order, recieverDoorTimer chan<- bool) {
 	switch e.Direction {
 	case elevator.Up:
@@ -155,8 +152,9 @@ func requestBelow(e elevator.State, orders elevator.Order) bool {
 
 }
 
+// requestClearAtCurrentFloor clears the orders that are excecuted
 func requestClearAtCurrentFloor(e elevator.State, orders *elevator.Order, rr resolvedRequests) {
-	//Definisjon. True: Alle ordre skal fjernes fra etasjen (alle går på). False: Bare de i samme retning.
+	// If EverybodyGoesOn is set to true, then all orders clear if the elevator stops at a floor.
 	if EverybodyGoesOn {
 		for j := range len((*orders)[e.Floor]) {
 			(*orders)[e.Floor][j] = false
@@ -165,12 +163,12 @@ func requestClearAtCurrentFloor(e elevator.State, orders *elevator.Order, rr res
 			rr(elevator.Cab, e.Floor)
 		}
 	} else {
-		(*orders)[e.Floor][elevator.Cab] = false
+		(*orders)[e.Floor][elevator.Cab] = false //Cab orders are always cleared.
 		rr(elevator.Cab, e.Floor)
 
 		switch e.Direction {
 		case elevator.Up:
-			if !requestAbove(e, (*orders)) && !(*orders)[e.Floor][elevator.HallUp] {
+			if !requestAbove(e, (*orders)) && !(*orders)[e.Floor][elevator.HallUp] { // Hall Down request is only cleared if it is not going further up
 				(*orders)[e.Floor][elevator.HallDown] = false
 				rr(elevator.HallDown, e.Floor)
 			}
@@ -178,7 +176,7 @@ func requestClearAtCurrentFloor(e elevator.State, orders *elevator.Order, rr res
 			rr(elevator.HallUp, e.Floor)
 
 		case elevator.Down:
-			if !requestBelow(e, (*orders)) && !(*orders)[e.Floor][elevator.HallDown] {
+			if !requestBelow(e, (*orders)) && !(*orders)[e.Floor][elevator.HallDown] { // Hall Up request is only cleared if it is not going further down
 				(*orders)[e.Floor][elevator.HallUp] = false
 				rr(elevator.HallUp, e.Floor)
 			}
@@ -198,7 +196,8 @@ func requestClearAtCurrentFloor(e elevator.State, orders *elevator.Order, rr res
 
 }
 
-func RequestShouldStop(e elevator.State, orders elevator.Order) bool {
+// requestShouldStop returns true if elevator should stop on that floor
+func requestShouldStop(e elevator.State, orders elevator.Order) bool {
 	switch e.Direction {
 	case elevator.Down:
 		return orders[e.Floor][elevator.HallDown] || orders[e.Floor][elevator.Cab] || !requestBelow(e, orders)
@@ -209,9 +208,8 @@ func RequestShouldStop(e elevator.State, orders elevator.Order) bool {
 	}
 }
 
-// Decision: Have to decide if everyone will get in the state, even tho they might be going in the opposite direction.
-
-func RequestShouldClearImmediatly(e elevator.State, orders elevator.Order) bool {
+// requestShouldClearImmediatly returns true if a order that comes in should be handled immediatly
+func requestShouldClearImmediatly(e elevator.State, orders elevator.Order) bool {
 	if EverybodyGoesOn {
 		for i := range len(orders[e.Floor]) {
 			if orders[e.Floor][i] {
@@ -231,25 +229,4 @@ func RequestShouldClearImmediatly(e elevator.State, orders elevator.Order) bool 
 			return false
 		}
 	}
-}
-
-// Debug functions.
-func printOrders(orders elevator.Order) {
-	// Iterate through the outer slice (rows)
-	log.Printf("Floor\t Up\t Down\t Cab\n")
-	for i := range len(orders) {
-		// Iterate through the inner slice (columns) at each row
-		fmt.Printf("%d\t", i)
-		for j := range len(orders[i]) {
-			// Print the Order information
-			fmt.Printf("%t\t ", orders[i][j])
-		}
-		fmt.Printf("\n\n")
-	}
-}
-
-func printElevatorState(state elevator.State) {
-	log.Printf("[elevatorfsm]\n\nFloor: %d\n", state.Floor)
-	log.Printf("Behavior: %d\n", state.Behavior)
-	log.Printf("Direction: %d\n\n", state.Direction)
 }
