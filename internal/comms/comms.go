@@ -27,11 +27,11 @@ type udpMessage struct {
 func RunComms(
 	local elevator.Id,
 	port int,
-	fromDriver <-chan message.ElevatorStateUpdate,
-	fromRequests <-chan message.RequestStateUpdate,
-	toOrders chan<- message.ElevatorStateUpdate,
-	toRequest chan<- message.RequestStateUpdate,
-	toHealthMonitor chan<- message.PeerHeartbeat) {
+	fromDriver <-chan message.ElevatorState,
+	fromRequests <-chan message.RequestState,
+	toOrders chan<- message.ElevatorState,
+	toRequest chan<- message.RequestState,
+	toHealthMonitor chan<- message.PeerSignal) {
 
 	var sendTicker = time.NewTicker(SendInterval)
 	var internalEsBuffer = make([]elevator.State, 0)
@@ -69,8 +69,8 @@ func RunComms(
 				continue
 			}
 
-			toHealthMonitor <- message.PeerHeartbeat{Id: msg.Source}
-			toOrders <- message.ElevatorStateUpdate{Elevator: msg.Source, State: msg.EState}
+			toHealthMonitor <- message.PeerSignal{Id: msg.Source}
+			toOrders <- message.ElevatorState{Elevator: msg.Source, State: msg.EState}
 
 			changedRequests := registry.diff(msg.Source, msg.Registry)
 			logRegistryDiff(msg.Source, changedRequests, registry, msg.Registry)
@@ -82,7 +82,7 @@ func RunComms(
 
 }
 
-func handleDriverMessage(msg message.ElevatorStateUpdate, internalBuffer *[]elevator.State) {
+func handleDriverMessage(msg message.ElevatorState, internalBuffer *[]elevator.State) {
 	if len(*internalBuffer) != 0 && (*internalBuffer)[0] == msg.State {
 		return
 	}
@@ -96,7 +96,7 @@ func handleDriverMessage(msg message.ElevatorStateUpdate, internalBuffer *[]elev
 	(*internalBuffer)[0] = msg.State
 }
 
-func handleRequestMessage(msg message.RequestStateUpdate, registry *requestRegistry) {
+func handleRequestMessage(msg message.RequestState, registry *requestRegistry) {
 	before := fmt.Sprintf("%v", registry)
 	registry.update(msg.Request)
 	after := fmt.Sprintf("%v", registry)
@@ -106,7 +106,7 @@ func handleRequestMessage(msg message.RequestStateUpdate, registry *requestRegis
 	}
 }
 
-func logRegistryDiff(peer elevator.Id, changed []message.RequestStateUpdate, internal, external requestRegistry) {
+func logRegistryDiff(peer elevator.Id, changed []message.RequestState, internal, external requestRegistry) {
 	if len(changed) == 0 {
 		return
 	}

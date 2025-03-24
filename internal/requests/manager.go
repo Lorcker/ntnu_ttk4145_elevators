@@ -56,7 +56,7 @@ func (rm *requestManager) UpdateAlivePeers(peers []elevator.Id) {
 // Process processes a request message and returns the updated request.
 //
 // Processed requests are stored in the request manager to keep track of the state of each request.
-func (rm *requestManager) Process(msg message.RequestStateUpdate) request.Request {
+func (rm *requestManager) Process(msg message.RequestState) request.Request {
 	if _, ok := rm.statusByOrigin[msg.Request.Origin]; !ok {
 		rm.statusByOrigin[msg.Request.Origin] = msg.Request.Status
 	}
@@ -86,14 +86,14 @@ func (rm *requestManager) Process(msg message.RequestStateUpdate) request.Reques
 }
 
 // processUnknown processes a request with an Unknown status.
-func (rm *requestManager) processUnknown(msg message.RequestStateUpdate) request.Status {
+func (rm *requestManager) processUnknown(msg message.RequestState) request.Status {
 	// As a request with an Unknown status does not add any new information,
 	// the stored request is returned as is.
 	return rm.statusByOrigin[msg.Request.Origin]
 }
 
 // processAbsent processes a request with an Absent status.
-func (rm *requestManager) processAbsent(msg message.RequestStateUpdate) request.Status {
+func (rm *requestManager) processAbsent(msg message.RequestState) request.Status {
 	currentStatus := rm.statusByOrigin[msg.Request.Origin]
 	if currentStatus == request.Confirmed || currentStatus == request.Unknown {
 		// Acknowledgement from the other peers is not needed,
@@ -105,7 +105,7 @@ func (rm *requestManager) processAbsent(msg message.RequestStateUpdate) request.
 }
 
 // processUnconfirmed processes a request with an Unconfirmed status.
-func (rm *requestManager) processUnconfirmed(msg message.RequestStateUpdate) request.Status {
+func (rm *requestManager) processUnconfirmed(msg message.RequestState) request.Status {
 	currentStatus := rm.statusByOrigin[msg.Request.Origin]
 	if currentStatus == request.Confirmed {
 		// The stored version is already confirmed, so we return it as is
@@ -126,7 +126,7 @@ func (rm *requestManager) processUnconfirmed(msg message.RequestStateUpdate) req
 }
 
 // processConfirmed processes a request with a Confirmed status.
-func (rm *requestManager) processConfirmed(msg message.RequestStateUpdate) request.Status {
+func (rm *requestManager) processConfirmed(msg message.RequestState) request.Status {
 	currentStatus := rm.statusByOrigin[msg.Request.Origin]
 
 	if currentStatus != request.Unconfirmed {
