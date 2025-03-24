@@ -34,8 +34,8 @@ func main() {
 
 	// These channels are responsible for sending updates from the elevator IO to the driver module.
 	// Updates are triggered by values read from the elevator IO.
-	floorSensorUpdate := make(chan message.FloorSensor, channelBufferSize)
-	obstructionSwitchUpdate := make(chan message.ObstructionSwitch, channelBufferSize)
+	floorSensorUpdate := make(chan message.FloorArrival, channelBufferSize)
+	obstructionSwitchUpdate := make(chan message.Obstruction, channelBufferSize)
 
 	// These channels are responsible to transport all updates concerning requests.
 	// All modules that want to update the state of a request should send a message to requestStateUpdateToRequest.
@@ -44,27 +44,27 @@ func main() {
 	// 	- [driver] When a request is resolved by the local elevator is sends a request with absent status to the [request] module
 	// 	- [comms] When the local peer receives a request from another peer it sends a request to the [request] module
 	// The [request] module then updates the state of the request and sends a notification to the [orders] and [comms] module.
-	requestStateUpdateToRequest := make(chan message.RequestStateUpdate, channelBufferSize)
-	requestStateNotifyToOrders := make(chan message.RequestStateUpdate, channelBufferSize)
-	requestStateNotifyToComms := make(chan message.RequestStateUpdate, channelBufferSize)
+	requestStateUpdateToRequest := make(chan message.RequestState, channelBufferSize)
+	requestStateNotifyToOrders := make(chan message.RequestState, channelBufferSize)
+	requestStateNotifyToComms := make(chan message.RequestState, channelBufferSize)
 
 	// This channel is responsible for sending newly calculated orders from the [orders] module to the [driver] module.
 	// Messages are only sent when the orders have changed.
-	orderUpdates := make(chan message.Order, channelBufferSize)
+	orderUpdates := make(chan message.ServiceOrder, channelBufferSize)
 
 	// These channels are responsible for sending updates concerning the state of the elevator.
 	// The [driver] module sends updates to the [orders] and [comms] module.
 	// The updates are sent periodically using a ticker defined in the [driver] module.
-	elevatorStateUpdateToOrders := make(chan message.ElevatorStateUpdate, channelBufferSize)
-	elevatorStateUpdateToComms := make(chan message.ElevatorStateUpdate, channelBufferSize)
+	elevatorStateUpdateToOrders := make(chan message.ElevatorState, channelBufferSize)
+	elevatorStateUpdateToComms := make(chan message.ElevatorState, channelBufferSize)
 
 	// These channels are responsible for sending updates concerning the aliveness of the peers.
 	// The [comms] module send heartbeats to the [healthmonitor] module if it receives messages from another peer.
 	// If the health of peer changes (i.e a peer has died or a new peer has joined),
 	// the [healthmonitor] module sends a notification to the [requests] and [orders] module.
-	heartbeatUpdate := make(chan message.PeerHeartbeat, channelBufferSize)
-	alivePeersNotifyToOrders := make(chan message.AlivePeersUpdate, channelBufferSize)
-	alivePeersNotifyToRequests := make(chan message.AlivePeersUpdate, channelBufferSize)
+	heartbeatUpdate := make(chan message.PeerSignal, channelBufferSize)
+	alivePeersNotifyToOrders := make(chan message.ActivePeers, channelBufferSize)
+	alivePeersNotifyToRequests := make(chan message.ActivePeers, channelBufferSize)
 
 	// The [elevatorio] module is responsible for communicating with the elevator hardware.
 	// It produces outputs:

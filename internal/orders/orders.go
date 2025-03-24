@@ -23,10 +23,10 @@ const orderRefreshRate = time.Millisecond * 2000
 // sends the local orders to the elevator driver.
 func RunOrderServer(
 	localPeerId elevator.Id,
-	requestUpdate <-chan message.RequestStateUpdate,
-	stateUpdate <-chan message.ElevatorStateUpdate,
-	aliveListUpdate <-chan message.AlivePeersUpdate,
-	orderUpdates chan<- message.Order,
+	requestUpdate <-chan message.RequestState,
+	stateUpdate <-chan message.ElevatorState,
+	aliveListUpdate <-chan message.ActivePeers,
+	orderUpdates chan<- message.ServiceOrder,
 ) {
 
 	// cache stores the latest requests, elevator states and alive information
@@ -63,7 +63,7 @@ func RunOrderServer(
 			}
 
 			logChangedOrders(oldOrders, newOrders)
-			orderUpdates <- message.Order{
+			orderUpdates <- message.ServiceOrder{
 				Order: newOrders[localPeerId],
 			}
 

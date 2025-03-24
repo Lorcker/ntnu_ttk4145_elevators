@@ -16,10 +16,10 @@ import (
 // The button lighting is set for the local elevator if the request is for the local elevator.
 func RunRequestServer(
 	local elevator.Id,
-	requestStateUpdates <-chan message.RequestStateUpdate,
-	currentAlivePeers <-chan message.AlivePeersUpdate,
-	notifyComms chan<- message.RequestStateUpdate,
-	notifyOrders chan<- message.RequestStateUpdate) {
+	requestStateUpdates <-chan message.RequestState,
+	currentAlivePeers <-chan message.ActivePeers,
+	notifyComms chan<- message.RequestState,
+	notifyOrders chan<- message.RequestState) {
 
 	var requestManager = newRequestManager(local)
 
@@ -29,7 +29,7 @@ func RunRequestServer(
 			req := requestManager.Process(msg)
 			setButtonLighting(local, req)
 
-			uMsg := message.RequestStateUpdate{
+			uMsg := message.RequestState{
 				Source:  local,
 				Request: req,
 			}

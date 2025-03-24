@@ -15,7 +15,7 @@ func TestRegistryDiff(t *testing.T) {
 		internal requestRegistry
 		external requestRegistry
 		peer     elevator.Id
-		expected []message.RequestStateUpdate
+		expected []message.RequestState
 	}{
 		{
 			name: "Discovered bug 1",
@@ -36,7 +36,7 @@ func TestRegistryDiff(t *testing.T) {
 				},
 			},
 			peer:     2,
-			expected: []message.RequestStateUpdate{},
+			expected: []message.RequestState{},
 		},
 	}
 

@@ -29,9 +29,9 @@ type alivePeers = map[elevator.Id]bool
 // It listens for pings from the elevators and tracks which elevators are alive.
 func RunMonitor(
 	local elevator.Id,
-	pingFromComms <-chan message.PeerHeartbeat,
-	alivenessToRequests chan<- message.AlivePeersUpdate,
-	alivenessToOrders chan<- message.AlivePeersUpdate) {
+	pingFromComms <-chan message.PeerSignal,
+	alivenessToRequests chan<- message.ActivePeers,
+	alivenessToOrders chan<- message.ActivePeers) {
 
 	lastSeen := make(lastSeen)
 	alivePeers := make(alivePeers)
@@ -47,7 +47,7 @@ func RunMonitor(
 				continue
 			}
 
-			msg := message.AlivePeersUpdate{
+			msg := message.ActivePeers{
 				Peers: mapToSlice(alivePeers),
 			}
 			alivenessToOrders <- msg
@@ -56,7 +56,7 @@ func RunMonitor(
 	}
 }
 
-func processPing(msg message.PeerHeartbeat, lastSeen lastSeen) {
+func processPing(msg message.PeerSignal, lastSeen lastSeen) {
 	if _, ok := lastSeen[msg.Id]; !ok {
 		log.Printf("[healthmonitor] A new peer with id %v is alive", msg.Id)
 	}

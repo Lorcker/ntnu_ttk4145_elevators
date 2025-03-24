@@ -14,7 +14,7 @@ func TestRequestManager(t *testing.T) {
 		alivePeers     []elevator.Id
 		initialRequest request.Request
 		updates        []struct {
-			update         message.RequestStateUpdate
+			update         message.RequestState
 			expectedStatus request.Status
 		}
 	}{
@@ -23,13 +23,13 @@ func TestRequestManager(t *testing.T) {
 			alivePeers:     []elevator.Id{1},
 			initialRequest: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unknown},
 			updates: []struct {
-				update         message.RequestStateUpdate
+				update         message.RequestState
 				expectedStatus request.Status
 			}{
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unknown}}, expectedStatus: request.Unknown},
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Absent}}, expectedStatus: request.Absent},
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unconfirmed}}, expectedStatus: request.Unconfirmed},
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Absent}}, expectedStatus: request.Unconfirmed},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unknown}}, expectedStatus: request.Unknown},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Absent}}, expectedStatus: request.Absent},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unconfirmed}}, expectedStatus: request.Unconfirmed},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Absent}}, expectedStatus: request.Unconfirmed},
 			},
 		},
 		{
@@ -37,13 +37,13 @@ func TestRequestManager(t *testing.T) {
 			alivePeers:     []elevator.Id{1},
 			initialRequest: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Unknown},
 			updates: []struct {
-				update         message.RequestStateUpdate
+				update         message.RequestState
 				expectedStatus request.Status
 			}{
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Unknown}}, expectedStatus: request.Unknown},
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Absent}}, expectedStatus: request.Absent},
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Unconfirmed}}, expectedStatus: request.Confirmed},
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Absent}}, expectedStatus: request.Absent},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Unknown}}, expectedStatus: request.Unknown},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Absent}}, expectedStatus: request.Absent},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Unconfirmed}}, expectedStatus: request.Confirmed},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Absent}}, expectedStatus: request.Absent},
 			},
 		},
 		{
@@ -51,14 +51,14 @@ func TestRequestManager(t *testing.T) {
 			alivePeers:     []elevator.Id{1, 2},
 			initialRequest: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unknown},
 			updates: []struct {
-				update         message.RequestStateUpdate
+				update         message.RequestState
 				expectedStatus request.Status
 			}{
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unknown}}, expectedStatus: request.Unknown},
-				{update: message.RequestStateUpdate{Source: 2, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unknown}}, expectedStatus: request.Unknown},
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unconfirmed}}, expectedStatus: request.Unconfirmed},
-				{update: message.RequestStateUpdate{Source: 2, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unconfirmed}}, expectedStatus: request.Confirmed},
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Absent}}, expectedStatus: request.Absent},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unknown}}, expectedStatus: request.Unknown},
+				{update: message.RequestState{Source: 2, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unknown}}, expectedStatus: request.Unknown},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unconfirmed}}, expectedStatus: request.Unconfirmed},
+				{update: message.RequestState{Source: 2, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unconfirmed}}, expectedStatus: request.Confirmed},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Absent}}, expectedStatus: request.Absent},
 			},
 		},
 		{
@@ -66,14 +66,14 @@ func TestRequestManager(t *testing.T) {
 			alivePeers:     []elevator.Id{1, 2},
 			initialRequest: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Unknown},
 			updates: []struct {
-				update         message.RequestStateUpdate
+				update         message.RequestState
 				expectedStatus request.Status
 			}{
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Unknown}}, expectedStatus: request.Unknown},
-				{update: message.RequestStateUpdate{Source: 2, Request: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Unknown}}, expectedStatus: request.Unknown},
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Unconfirmed}}, expectedStatus: request.Unconfirmed},
-				{update: message.RequestStateUpdate{Source: 2, Request: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Unconfirmed}}, expectedStatus: request.Confirmed},
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Absent}}, expectedStatus: request.Absent},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Unknown}}, expectedStatus: request.Unknown},
+				{update: message.RequestState{Source: 2, Request: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Unknown}}, expectedStatus: request.Unknown},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Unconfirmed}}, expectedStatus: request.Unconfirmed},
+				{update: message.RequestState{Source: 2, Request: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Unconfirmed}}, expectedStatus: request.Confirmed},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Cab{Id: 1, Floor: 1}, Status: request.Absent}}, expectedStatus: request.Absent},
 			},
 		},
 		{
@@ -81,12 +81,12 @@ func TestRequestManager(t *testing.T) {
 			alivePeers:     []elevator.Id{1},
 			initialRequest: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unknown},
 			updates: []struct {
-				update         message.RequestStateUpdate
+				update         message.RequestState
 				expectedStatus request.Status
 			}{
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unknown}}, expectedStatus: request.Unknown},
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Absent}}, expectedStatus: request.Absent},
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Confirmed}}, expectedStatus: request.Absent},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unknown}}, expectedStatus: request.Unknown},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Absent}}, expectedStatus: request.Absent},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Confirmed}}, expectedStatus: request.Absent},
 			},
 		},
 		{
@@ -94,11 +94,11 @@ func TestRequestManager(t *testing.T) {
 			alivePeers:     []elevator.Id{1, 2},
 			initialRequest: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unconfirmed},
 			updates: []struct {
-				update         message.RequestStateUpdate
+				update         message.RequestState
 				expectedStatus request.Status
 			}{
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unconfirmed}}, expectedStatus: request.Unconfirmed},
-				{update: message.RequestStateUpdate{Source: 2, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Confirmed}}, expectedStatus: request.Confirmed},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unconfirmed}}, expectedStatus: request.Unconfirmed},
+				{update: message.RequestState{Source: 2, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Confirmed}}, expectedStatus: request.Confirmed},
 			},
 		},
 		{
@@ -106,11 +106,11 @@ func TestRequestManager(t *testing.T) {
 			alivePeers:     []elevator.Id{1, 2},
 			initialRequest: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Confirmed},
 			updates: []struct {
-				update         message.RequestStateUpdate
+				update         message.RequestState
 				expectedStatus request.Status
 			}{
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Confirmed}}, expectedStatus: request.Confirmed},
-				{update: message.RequestStateUpdate{Source: 2, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unconfirmed}}, expectedStatus: request.Confirmed},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Confirmed}}, expectedStatus: request.Confirmed},
+				{update: message.RequestState{Source: 2, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unconfirmed}}, expectedStatus: request.Confirmed},
 			},
 		},
 		{
@@ -118,12 +118,12 @@ func TestRequestManager(t *testing.T) {
 			alivePeers:     []elevator.Id{1, 2, 3},
 			initialRequest: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unconfirmed},
 			updates: []struct {
-				update         message.RequestStateUpdate
+				update         message.RequestState
 				expectedStatus request.Status
 			}{
-				{update: message.RequestStateUpdate{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unconfirmed}}, expectedStatus: request.Unconfirmed},
-				{update: message.RequestStateUpdate{Source: 2, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unconfirmed}}, expectedStatus: request.Unconfirmed},
-				{update: message.RequestStateUpdate{Source: 3, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unconfirmed}}, expectedStatus: request.Confirmed},
+				{update: message.RequestState{Source: 1, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unconfirmed}}, expectedStatus: request.Unconfirmed},
+				{update: message.RequestState{Source: 2, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unconfirmed}}, expectedStatus: request.Unconfirmed},
+				{update: message.RequestState{Source: 3, Request: request.Request{Origin: request.Hall{Floor: 1, Direction: request.Up}, Status: request.Unconfirmed}}, expectedStatus: request.Confirmed},
 			},
 		},
 	}
