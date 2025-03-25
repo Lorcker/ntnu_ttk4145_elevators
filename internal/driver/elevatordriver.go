@@ -45,15 +45,15 @@ func RunDriver(pollObstructionSwitch <-chan message.ObstructionSwitch,
 		case msg := <-pollOrders:
 			order = msg.Order
 			log.Printf("[elevatordriver] Received new orders: %v", order)
-			handleOrderEvent(&state, order, receiverStartDoorTimer, clearRequestFun)
+			fsmHandleOrderEvent(&state, order, receiverStartDoorTimer, clearRequestFun)
 
 		case msg := <-pollFloorSensor:
 			log.Printf("[elevatordriver] Received floor sensor: %v", msg)
-			handleFloorsensorEvent(&state, order, msg.Floor, receiverStartDoorTimer, clearRequestFun)
+			fsmHandleFloorsensorEvent(&state, order, receiverStartDoorTimer, clearRequestFun, msg.Floor)
 
 		case <-receiverStartDoorTimer:
 			log.Printf("[elevatordriver] Received open door message")
-			openDoor(&state)
+			fsmOpenDoor(&state)
 			timerDoor.Reset(time.Duration(doorTimerDuration) * time.Second)
 
 		case <-pollObstructionSwitch:
@@ -64,10 +64,10 @@ func RunDriver(pollObstructionSwitch <-chan message.ObstructionSwitch,
 			}
 
 		case <-timerDoor.C:
-			log.Printf("[elevatordriver] Received door closed message")
 			if state.Behavior == elevator.DoorOpen && !isObstructed {
-				handleDoorTimerEvent(&state, order, receiverStartDoorTimer, clearRequestFun)
+				fsmHandleDoorTimerEvent(&state, order, receiverStartDoorTimer, clearRequestFun)
 			} else {
+				log.Printf("[elevatordriver] Received door closed message")
 				timerDoor.Reset(time.Duration(doorTimerDuration) * time.Second)
 			}
 		case <-tickerSendElevatorState.C:
