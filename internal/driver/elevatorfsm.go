@@ -57,14 +57,14 @@ func fsmHandleDoorTimerEvent(state *elevator.State, orders elevator.Order, recie
 	}
 }
 
-// fsmOpenDoor sets updates elevator behaviour to doorOpen, and sets the light
+// fsmOpenDoor updates elevator behaviour to doorOpen, and sets the light
 func fsmOpenDoor(state *elevator.State) {
 	log.Printf("[elevatorfsm] Door open\n")
 	elevatorio.SetDoorOpenLamp(true)
 	state.Behavior = elevator.DoorOpen
 }
 
-// fsmChooseDirection updates the elevator direction and behaviour based on the current orders. Inspired by the given C-code.
+// fsmChooseDirection calculates and updates the elevator direction and behaviour based on the current orders. Inspired by the given C-code.
 func fsmChooseDirection(e *elevator.State, orders elevator.Order) {
 	switch e.Direction {
 	case elevator.Up:

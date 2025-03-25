@@ -2,6 +2,7 @@ package driver
 
 import "group48.ttk4145.ntnu/elevators/internal/models/elevator"
 
+// ordersAbove returns true if there excist an order above
 func ordersAbove(e elevator.State, orders elevator.Order) bool {
 	if e.Floor >= elevator.NumFloors-1 {
 		return false
@@ -17,6 +18,7 @@ func ordersAbove(e elevator.State, orders elevator.Order) bool {
 	return false
 }
 
+// ordersHere returns true if there excist an order here
 func ordersHere(e elevator.State, orders elevator.Order) bool {
 	for _, order := range orders[e.Floor] {
 		if order {
@@ -26,6 +28,7 @@ func ordersHere(e elevator.State, orders elevator.Order) bool {
 	return false
 }
 
+// ordersBelow returns true if there excist an order below
 func ordersBelow(e elevator.State, orders elevator.Order) bool {
 	if e.Floor == 0 {
 		return false
