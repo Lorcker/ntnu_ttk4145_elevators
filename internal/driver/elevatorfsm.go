@@ -9,108 +9,119 @@ import (
 
 const EverybodyGoesOn bool = false
 
-type resolvedRequests func(btn elevator.ButtonType, floor elevator.Floor)
+type ResolvedRequests func(btn elevator.ButtonType, floor elevator.Floor)
 
-// fsmHandleOrderEvent updates the elevator state based on new orders
-func fsmHandleOrderEvent(state *elevator.State, orders elevator.Order, recieverDoorTimer chan<- bool, rr resolvedRequests) {
-	switch state.Behavior {
+type ElevatorFSM struct {
+	state             *elevator.State
+	orders            elevator.Order
+	recieverDoorTimer chan<- bool
+	rr                ResolvedRequests
+}
+
+func ElevatorFSMInit(state elevator.State, orders elevator.Order, recieverDoorTimer chan<- bool, rr ResolvedRequests) *ElevatorFSM {
+	return &ElevatorFSM{&state, orders, recieverDoorTimer, rr}
+}
+
+// HandleOrderEvent updates the elevator state based on new orders
+func (fsm *ElevatorFSM) HandleOrderEvent() {
+	switch fsm.state.Behavior {
 	case elevator.Idle:
-		fsmChooseDirection(state, orders) // Updates the behaviour and direction
-		if state.Behavior == elevator.DoorOpen {
-			recieverDoorTimer <- true
-			ordersClearAtCurrentFloor(*state, &orders, rr) // Clears orders that is handled at the current floor.
-		} else if state.Behavior == elevator.Moving {
-			elevatorio.SetMotorDirection(state.Direction)
+		fsm.ChooseDirection() // Updates the behaviour and direction
+		if fsm.state.Behavior == elevator.DoorOpen {
+			fsm.recieverDoorTimer <- true
+			fsm.ordersClearAtCurrentFloor() // Clears orders that is handled at the current floor.
+		} else if fsm.state.Behavior == elevator.Moving {
+			elevatorio.SetMotorDirection(fsm.state.Direction)
 		}
 
 	case elevator.DoorOpen:
-		if ordersShouldClearImmediatly(*state, orders) { //If it is a order at the current floor that should be handled.
-			recieverDoorTimer <- true
-			ordersClearAtCurrentFloor(*state, &orders, rr)
+		if ordersShouldClearImmediatly(*fsm.state, fsm.orders) { //If it is a order at the current floor that should be handled.
+			fsm.recieverDoorTimer <- true
+			fsm.ordersClearAtCurrentFloor()
 		}
 	}
 }
 
-// fsmHandleFloorsensorEvent updates the elevator state when arriving at a new floor
-func fsmHandleFloorsensorEvent(state *elevator.State, orders elevator.Order, recieverDoorTimer chan<- bool, rr resolvedRequests, floor elevator.Floor) {
-	state.Floor = floor
+// HandleFloorsensorEvent updates the elevator state when arriving at a new floor
+func (fsm *ElevatorFSM) HandleFloorsensorEvent(floor elevator.Floor) {
+	fsm.state.Floor = floor
 	elevatorio.SetFloorIndicator(floor)
-	if state.Behavior == elevator.Moving && ordersElevatorShouldStop(*state, orders) {
+	if fsm.state.Behavior == elevator.Moving && fsm.ordersElevatorShouldStop() {
 		elevatorio.SetMotorDirection((0))
-		fsmOpenDoor(state)
-		recieverDoorTimer <- true
-		ordersClearAtCurrentFloor(*state, &orders, rr)
+		fsm.OpenDoor()
+		fsm.recieverDoorTimer <- true
+		fsm.ordersClearAtCurrentFloor()
 	}
 }
 
-// When the door timer is finished, fsmHandleDoorTimerEvent closes the door, and sends the elevator in the desired direction.
-func fsmHandleDoorTimerEvent(state *elevator.State, orders elevator.Order, recieverDoorTimer chan<- bool, rr resolvedRequests) {
-	if state.Behavior == elevator.DoorOpen {
-		fsmChooseDirection(state, orders) // updates the behaviour and direction of the elevator
-		if state.Behavior == elevator.DoorOpen {
-			recieverDoorTimer <- true
-			ordersClearAtCurrentFloor(*state, &orders, rr)
+// When the door timer is finished, HandleDoorTimerEvent closes the door, and sends the elevator in the desired direction.
+func (fsm *ElevatorFSM) HandleDoorTimerEvent() {
+	if fsm.state.Behavior == elevator.DoorOpen {
+		fsm.ChooseDirection() // updates the behaviour and direction of the elevator
+		if fsm.state.Behavior == elevator.DoorOpen {
+			fsm.recieverDoorTimer <- true
+			fsm.ordersClearAtCurrentFloor()
 		} else {
 			elevatorio.SetDoorOpenLamp(false)
-			elevatorio.SetMotorDirection(state.Direction)
+			elevatorio.SetMotorDirection(fsm.state.Direction)
 		}
 	}
 }
 
-// fsmOpenDoor updates elevator behaviour to doorOpen, and sets the light
-func fsmOpenDoor(state *elevator.State) {
+// OpenDoor updates elevator behaviour to doorOpen, and sets the light
+func (fsm *ElevatorFSM) OpenDoor() {
 	log.Printf("[elevatorfsm] Door open\n")
 	elevatorio.SetDoorOpenLamp(true)
-	state.Behavior = elevator.DoorOpen
+	fsm.state.Behavior = elevator.DoorOpen
 }
 
-// fsmChooseDirection calculates and updates the elevator direction and behaviour based on the current orders. Inspired by the given C-code.
-func fsmChooseDirection(e *elevator.State, orders elevator.Order) {
-	switch e.Direction {
+// ChooseDirection calculates and updates the elevator direction and behaviour based on the current orders. Inspired by the given C-code.
+func (fsm *ElevatorFSM) ChooseDirection() {
+	switch fsm.state.Direction {
 	case elevator.Up:
-		if ordersAbove(*e, orders) {
-			e.Direction = elevator.Up
-			e.Behavior = elevator.Moving
-		} else if ordersHere(*e, orders) {
-			e.Direction = elevator.Stop
-			fsmOpenDoor(e)
+		if fsm.ordersAbove() {
+			fsm.state.Direction = elevator.Up
+			fsm.state.Behavior = elevator.Moving
+		} else if fsm.ordersHere() {
+			fsm.state.Direction = elevator.Stop
+			fsm.OpenDoor()
 
-		} else if ordersBelow(*e, orders) {
-			e.Direction = elevator.Down
-			e.Behavior = elevator.Moving
+		} else if fsm.ordersBelow() {
+			fsm.state.Direction = elevator.Down
+			fsm.state.Behavior = elevator.Moving
 		} else {
-			e.Direction = elevator.Stop
-			e.Behavior = elevator.Idle
+			fsm.state.Direction = elevator.Stop
+			fsm.state.Behavior = elevator.Idle
 		}
 
 	case elevator.Down:
-		if ordersBelow(*e, orders) {
-			e.Direction = elevator.Down
-			e.Behavior = elevator.Moving
-		} else if ordersHere(*e, orders) {
-			e.Direction = elevator.Stop
-			fsmOpenDoor(e)
-		} else if ordersAbove(*e, orders) {
-			e.Direction = elevator.Up
-			e.Behavior = elevator.Moving
+		if fsm.ordersBelow() {
+			fsm.state.Direction = elevator.Down
+			fsm.state.Behavior = elevator.Moving
+		} else if fsm.ordersHere() {
+			fsm.state.Direction = elevator.Stop
+			fsm.OpenDoor()
+		} else if fsm.ordersAbove() {
+			fsm.state.Direction = elevator.Up
+			fsm.state.Behavior = elevator.Moving
 		} else {
-			e.Direction = elevator.Stop
-			e.Behavior = elevator.Idle
+			fsm.state.Direction = elevator.Stop
+			fsm.state.Behavior = elevator.Idle
 		}
 
 	case elevator.Stop:
-		if ordersHere(*e, orders) {
-			e.Direction = elevator.Stop
-			fsmOpenDoor(e)
-		} else if ordersAbove(*e, orders) {
-			e.Direction = elevator.Up
-			e.Behavior = elevator.Moving
-		} else if ordersBelow(*e, orders) {
-			e.Direction = elevator.Down
-			e.Behavior = elevator.Moving
+		if fsm.ordersHere() {
+			fsm.state.Direction = elevator.Stop
+			fsm.OpenDoor()
+		} else if fsm.ordersAbove() {
+			fsm.state.Direction = elevator.Up
+			fsm.state.Behavior = elevator.Moving
+		} else if fsm.ordersBelow() {
+			fsm.state.Direction = elevator.Down
+			fsm.state.Behavior = elevator.Moving
 		} else {
-			e.Direction = elevator.Stop
-			e.Behavior = elevator.Idle
+			fsm.state.Direction = elevator.Stop
+			fsm.state.Behavior = elevator.Idle
 		}
 	}
 }

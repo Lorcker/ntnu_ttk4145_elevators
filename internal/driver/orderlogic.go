@@ -3,14 +3,14 @@ package driver
 import "group48.ttk4145.ntnu/elevators/internal/models/elevator"
 
 // ordersAbove returns true if there excist an order above
-func ordersAbove(e elevator.State, orders elevator.Order) bool {
-	if e.Floor >= elevator.NumFloors-1 {
+func (fsm *ElevatorFSM) ordersAbove() bool {
+	if fsm.state.Floor >= elevator.NumFloors-1 {
 		return false
 	} //Already at top floor
 
-	for i := (e.Floor + 1); i < elevator.NumFloors; i++ {
-		for j := range orders[e.Floor] {
-			if orders[i][j] {
+	for i := (fsm.state.Floor + 1); i < elevator.NumFloors; i++ {
+		for j := range fsm.orders[fsm.state.Floor] {
+			if fsm.orders[i][j] {
 				return true
 			}
 		}
@@ -19,8 +19,8 @@ func ordersAbove(e elevator.State, orders elevator.Order) bool {
 }
 
 // ordersHere returns true if there excist an order here
-func ordersHere(e elevator.State, orders elevator.Order) bool {
-	for _, order := range orders[e.Floor] {
+func (fsm *ElevatorFSM) ordersHere() bool {
+	for _, order := range fsm.orders[fsm.state.Floor] {
 		if order {
 			return true
 		}
@@ -29,13 +29,13 @@ func ordersHere(e elevator.State, orders elevator.Order) bool {
 }
 
 // ordersBelow returns true if there excist an order below
-func ordersBelow(e elevator.State, orders elevator.Order) bool {
-	if e.Floor == 0 {
+func (fsm *ElevatorFSM) ordersBelow() bool {
+	if fsm.state.Floor == 0 {
 		return false
 	} // Already at bottom floor
-	for i := e.Floor - 1; i >= 0; i-- {
-		for j := range len(orders[e.Floor]) {
-			if orders[i][j] {
+	for i := fsm.state.Floor - 1; i >= 0; i-- {
+		for j := range len(fsm.orders[fsm.state.Floor]) {
+			if fsm.orders[i][j] {
 				return true
 			}
 		}
@@ -45,43 +45,43 @@ func ordersBelow(e elevator.State, orders elevator.Order) bool {
 }
 
 // ordersClearAtCurrentFloor clears the orders that are excecuted
-func ordersClearAtCurrentFloor(e elevator.State, orders *elevator.Order, rr resolvedRequests) {
+func (fsm *ElevatorFSM) ordersClearAtCurrentFloor() {
 	// If EverybodyGoesOn is set to true, then all orders clear if the elevator stops at a floor.
 	if EverybodyGoesOn {
-		for j := range len((*orders)[e.Floor]) {
-			(*orders)[e.Floor][j] = false
-			rr(elevator.HallUp, e.Floor)
-			rr(elevator.HallDown, e.Floor)
-			rr(elevator.Cab, e.Floor)
+		for j := range len((fsm.orders)[fsm.state.Floor]) {
+			(fsm.orders)[fsm.state.Floor][j] = false
+			fsm.rr(elevator.HallUp, fsm.state.Floor)
+			fsm.rr(elevator.HallDown, fsm.state.Floor)
+			fsm.rr(elevator.Cab, fsm.state.Floor)
 		}
 	} else {
-		(*orders)[e.Floor][elevator.Cab] = false //Cab orders are always cleared.
-		rr(elevator.Cab, e.Floor)
+		(fsm.orders)[fsm.state.Floor][elevator.Cab] = false //Cab orders are always cleared.
+		fsm.rr(elevator.Cab, fsm.state.Floor)
 
-		switch e.Direction {
+		switch fsm.state.Direction {
 		case elevator.Up:
-			if !ordersAbove(e, (*orders)) && !(*orders)[e.Floor][elevator.HallUp] { // Hall Down request is only cleared if it is not going further up
-				(*orders)[e.Floor][elevator.HallDown] = false
-				rr(elevator.HallDown, e.Floor)
+			if !fsm.ordersAbove() && !(fsm.orders)[fsm.state.Floor][elevator.HallUp] { // Hall Down request is only cleared if it is not going further up
+				(fsm.orders)[fsm.state.Floor][elevator.HallDown] = false
+				fsm.rr(elevator.HallDown, fsm.state.Floor)
 			}
-			(*orders)[e.Floor][elevator.HallUp] = false
-			rr(elevator.HallUp, e.Floor)
+			(fsm.orders)[fsm.state.Floor][elevator.HallUp] = false
+			fsm.rr(elevator.HallUp, fsm.state.Floor)
 
 		case elevator.Down:
-			if !ordersBelow(e, (*orders)) && !(*orders)[e.Floor][elevator.HallDown] { // Hall Up request is only cleared if it is not going further down
-				(*orders)[e.Floor][elevator.HallUp] = false
-				rr(elevator.HallUp, e.Floor)
+			if !fsm.ordersBelow() && !(fsm.orders)[fsm.state.Floor][elevator.HallDown] { // Hall Up request is only cleared if it is not going further down
+				(fsm.orders)[fsm.state.Floor][elevator.HallUp] = false
+				fsm.rr(elevator.HallUp, fsm.state.Floor)
 			}
-			(*orders)[e.Floor][elevator.HallDown] = false
-			rr(elevator.HallDown, e.Floor)
+			(fsm.orders)[fsm.state.Floor][elevator.HallDown] = false
+			fsm.rr(elevator.HallDown, fsm.state.Floor)
 
 		case elevator.Stop:
 			fallthrough
 		default:
-			(*orders)[e.Floor][elevator.HallDown] = false
-			(*orders)[e.Floor][elevator.HallUp] = false
-			rr(elevator.HallDown, e.Floor)
-			rr(elevator.HallUp, e.Floor)
+			(fsm.orders)[fsm.state.Floor][elevator.HallDown] = false
+			(fsm.orders)[fsm.state.Floor][elevator.HallUp] = false
+			fsm.rr(elevator.HallDown, fsm.state.Floor)
+			fsm.rr(elevator.HallUp, fsm.state.Floor)
 		}
 
 	}
@@ -89,12 +89,12 @@ func ordersClearAtCurrentFloor(e elevator.State, orders *elevator.Order, rr reso
 }
 
 // ordersElevatorShouldStop returns true if elevator should stop on that floor
-func ordersElevatorShouldStop(e elevator.State, orders elevator.Order) bool {
-	switch e.Direction {
+func (fsm *ElevatorFSM) ordersElevatorShouldStop() bool {
+	switch fsm.state.Direction {
 	case elevator.Down:
-		return orders[e.Floor][elevator.HallDown] || orders[e.Floor][elevator.Cab] || !ordersBelow(e, orders)
+		return fsm.orders[fsm.state.Floor][elevator.HallDown] || fsm.orders[fsm.state.Floor][elevator.Cab] || !fsm.ordersBelow()
 	case elevator.Up:
-		return orders[e.Floor][elevator.HallUp] || orders[e.Floor][elevator.Cab] || !ordersAbove(e, orders)
+		return fsm.orders[fsm.state.Floor][elevator.HallUp] || fsm.orders[fsm.state.Floor][elevator.Cab] || !fsm.ordersAbove()
 	default:
 		return true
 	}
