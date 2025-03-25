@@ -33,6 +33,7 @@ func handleOrderEvent(state *elevator.State, orders elevator.Order, recieverDoor
 func handleFloorsensorEvent(state *elevator.State, orders elevator.Order, floor elevator.Floor, recieverDoorTimer chan<- bool, rr resolvedRequests) {
 	state.Floor = floor
 	elevatorio.SetFloorIndicator(floor)
+
 	if state.Behavior == elevator.Moving && RequestShouldStop(*state, orders) {
 		elevatorio.SetMotorDirection((0))
 		elevatorio.SetDoorOpenLamp(true)
@@ -53,6 +54,18 @@ func handleDoorTimerEvent(state *elevator.State, orders elevator.Order, reciever
 			elevatorio.SetMotorDirection(state.Direction)
 		}
 	}
+}
+
+// Handle the timer event for the engine, to see if the elevator is stuck.
+func handleEngineTimerEvent(state *elevator.State, orders elevator.Order, isSelfAlive chan<- bool) {
+	if state.Behavior == elevator.Moving {
+		log.Printf("[elevatorfsm] Elevator failure\n")
+		isSelfAlive <- false
+		elevatorio.SetMotorDirection(0)
+		state.Direction = elevator.Stop
+		state.Behavior = elevator.Idle
+	}
+
 }
 
 func openDoor(state *elevator.State) {

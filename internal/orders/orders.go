@@ -55,8 +55,7 @@ func RunOrderServer(
 			if !cache.IsConsistent() {
 				continue
 			}
-
-			newOrders := calculateOrders(cache.Hr, cache.Cr, cache.States)
+			newOrders := calculateOrders(cache.Hr, cache.Cr, cache.States, cache.AlivePeers)
 			if reflect.DeepEqual(newOrders, oldOrders) {
 				// Orders have not changed, no need to send an update to the elevator driver
 				continue

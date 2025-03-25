@@ -34,6 +34,7 @@ type Obstruction struct{}
 type ElevatorState struct {
 	// Elevator identifies which elevator's state has changed
 	Elevator elevator.Id
+	Alive    bool
 	// State contains the updated operational state information
 	State elevator.State
 }
@@ -64,6 +65,9 @@ type RequestState struct {
 type PeerSignal struct {
 	// Id identifies which elevator sent the heartbeat
 	Id elevator.Id
+	// Alive indicates whether the elevator is still
+	// operational and sending heartbeats
+	Alive bool
 }
 
 // ActivePeers is a message sent when the set of operational elevators changes.

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"group48.ttk4145.ntnu/elevators/internal/models/elevator"
+	"group48.ttk4145.ntnu/elevators/internal/models/message"
 )
 
 func TestUpdateAliveList(t *testing.T) {
@@ -89,11 +90,29 @@ func TestUpdateAliveList(t *testing.T) {
 			},
 			changed: true,
 		},
+		{
+			name: "Local dead",
+			lastSeen: lastSeen{
+				localID: time.Now().Add(-Timeout * 2),
+				peerID1: time.Now(),
+				peerID2: time.Now(),
+			},
+			alivePeers: alivePeers{
+				localID: true,
+				peerID1: true,
+				peerID2: true,
+			},
+			expected: alivePeers{
+				peerID1: true,
+				peerID2: true,
+			},
+			changed: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			changed := updateAliveList(tt.lastSeen, tt.alivePeers, localID)
+			changed := updateAliveList(tt.lastSeen, tt.alivePeers, localID, true)
 			if changed != tt.changed {
 				t.Errorf("expected changed to be %v, got %v", tt.changed, changed)
 			}
@@ -104,4 +123,30 @@ func TestUpdateAliveList(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRunHealthMonitor(t *testing.T) {
+	localID := elevator.Id(0)
+	peerID1 := elevator.Id(1)
+	peerID2 := elevator.Id(2)
+
+	pingFromComms := make(chan message.PeerSignal)
+	alivenessToOrders := make(chan message.ActivePeers)
+	alivenessToRequests := make(chan message.ActivePeers)
+
+	go func() {
+		pingFromComms <- message.PeerSignal{Id: peerID1, Alive: true}
+		pingFromComms <- message.PeerSignal{Id: peerID2, Alive: true}
+		pingFromComms <- message.PeerSignal{Id: peerID1, Alive: false}
+		pingFromComms <- message.PeerSignal{Id: peerID2, Alive: false}
+	}()
+
+	go RunMonitor(
+		localID,
+		pingFromComms,
+		alivenessToOrders,
+		alivenessToRequests,
+	)
+
+	time.Sleep(10000 * time.Millisecond)
 }

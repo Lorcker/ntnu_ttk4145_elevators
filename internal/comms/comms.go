@@ -14,6 +14,7 @@ const SendInterval = time.Millisecond * 100
 
 type udpMessage struct {
 	Source   elevator.Id
+	Alive    bool
 	Registry requestRegistry
 	EState   elevator.State
 }
@@ -36,6 +37,7 @@ func RunComms(
 	var sendTicker = time.NewTicker(SendInterval)
 	var internalEsBuffer = make([]elevator.State, 0)
 	var registry = newRequestRegistry()
+	localAlive := true
 
 	sendUdp := make(chan udpMessage)
 	receiveUdp := make(chan udpMessage)
@@ -45,7 +47,7 @@ func RunComms(
 	for {
 		select {
 		case msg := <-fromDriver:
-			handleDriverMessage(msg, &internalEsBuffer)
+			handleDriverMessage(msg, &internalEsBuffer, &localAlive)
 
 		case msg := <-fromRequests:
 			handleRequestMessage(msg, &registry)
@@ -59,17 +61,16 @@ func RunComms(
 			u := udpMessage{
 				Source:   local,
 				Registry: registry,
+				Alive:    localAlive,
 				EState:   internalEsBuffer[0],
 			}
 			sendUdp <- u
-
 		case msg := <-receiveUdp:
 			if msg.Source == local {
 				// Ignore messages from self
 				continue
 			}
-
-			toHealthMonitor <- message.PeerSignal{Id: msg.Source}
+			toHealthMonitor <- message.PeerSignal{Id: msg.Source, Alive: msg.Alive}
 			toOrders <- message.ElevatorState{Elevator: msg.Source, State: msg.EState}
 
 			changedRequests := registry.diff(msg.Source, msg.Registry)
@@ -82,7 +83,7 @@ func RunComms(
 
 }
 
-func handleDriverMessage(msg message.ElevatorState, internalBuffer *[]elevator.State) {
+func handleDriverMessage(msg message.ElevatorState, internalBuffer *[]elevator.State, localAlive *bool) {
 	if len(*internalBuffer) != 0 && (*internalBuffer)[0] == msg.State {
 		return
 	}
@@ -94,6 +95,7 @@ func handleDriverMessage(msg message.ElevatorState, internalBuffer *[]elevator.S
 
 	log.Printf("[comms] Received new local elevator state update from [driver]: %v", msg)
 	(*internalBuffer)[0] = msg.State
+	*localAlive = msg.Alive
 }
 
 func handleRequestMessage(msg message.RequestState, registry *requestRegistry) {

@@ -63,6 +63,7 @@ func main() {
 	// If the health of peer changes (i.e a peer has died or a new peer has joined),
 	// the [healthmonitor] module sends a notification to the [requests] and [orders] module.
 	heartbeatUpdate := make(chan message.PeerSignal, channelBufferSize)
+	localAlive := make(chan bool, channelBufferSize)
 	alivePeersNotifyToOrders := make(chan message.ActivePeers, channelBufferSize)
 	alivePeersNotifyToRequests := make(chan message.ActivePeers, channelBufferSize)
 
@@ -82,6 +83,7 @@ func main() {
 	// It produces outputs:
 	//  - Updates to the [request] module (resolved requests) when a request is resolved
 	//  - Updates to the [comms] and [order] module (elevator state) based on a polling rate
+	//  - Sends a heartbeat update to the [healthmonitor] module to indicate that the local peer is dead, due to failure
 	go driver.RunDriver(
 		obstructionSwitchUpdate,
 		floorSensorUpdate,
@@ -89,6 +91,7 @@ func main() {
 		requestStateUpdateToRequest,
 		elevatorStateUpdateToComms,
 		elevatorStateUpdateToOrders,
+		localAlive,
 		localId,
 	)
 

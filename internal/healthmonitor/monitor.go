@@ -38,18 +38,21 @@ func RunMonitor(
 
 	ticker := time.NewTicker(PollInterval)
 
+	localAlive := true
+
 	for {
 		select {
 		case msg := <-pingFromComms:
 			processPing(msg, lastSeen)
+
 		case <-ticker.C:
-			if !updateAliveList(lastSeen, alivePeers, local) {
+			if !updateAliveList(lastSeen, alivePeers, local, localAlive) {
 				continue
 			}
-
 			msg := message.ActivePeers{
 				Peers: mapToSlice(alivePeers),
 			}
+			log.Printf("[healthmonitor] Alive peers: %v", msg.Peers)
 			alivenessToOrders <- msg
 			alivenessToRequests <- msg
 		}
@@ -57,13 +60,17 @@ func RunMonitor(
 }
 
 func processPing(msg message.PeerSignal, lastSeen lastSeen) {
-	if _, ok := lastSeen[msg.Id]; !ok {
-		log.Printf("[healthmonitor] A new peer with id %v is alive", msg.Id)
+	if msg.Alive {
+		if _, ok := lastSeen[msg.Id]; !ok {
+			log.Printf("[healthmonitor] A new peer with id %v is alive", msg.Id)
+		}
+		lastSeen[msg.Id] = time.Now()
+	} else if !msg.Alive {
+		lastSeen[msg.Id] = time.Now().Add(-Timeout)
 	}
-	lastSeen[msg.Id] = time.Now()
 }
 
-func updateAliveList(lastSeen lastSeen, alivePeers alivePeers, local elevator.Id) bool {
+func updateAliveList(lastSeen lastSeen, alivePeers alivePeers, local elevator.Id, localAlive bool) bool {
 	changed := false
 	for id, t := range lastSeen {
 		if time.Since(t) < Timeout {
@@ -77,11 +84,15 @@ func updateAliveList(lastSeen lastSeen, alivePeers alivePeers, local elevator.Id
 			log.Printf("[healthmonitor] The Peer with id %v has died", id)
 		}
 	}
-	if !alivePeers[local] {
-		// the local elevator is always alive
+	if localAlive && !alivePeers[local] {
 		alivePeers[local] = true
 		changed = true
+	} else if !localAlive && alivePeers[local] {
+		log.Printf("[healthmonitor] The local peer has died")
+		delete(alivePeers, local)
+		changed = true
 	}
+
 	return changed
 }
 

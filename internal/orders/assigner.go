@@ -47,7 +47,16 @@ var behaviorToString = map[elevator.Behavior]string{
 //
 // It sends the state of the system to the hall_request_assigner executable and returns the orders.
 // This approach is used to avoid having to implement the assigner logic in Go which would lead to code duplication and potential bugs.
-func calculateOrders(hr hallRequests, cr map[elevator.Id]cabRequests, elevators map[elevator.Id]elevator.State) map[elevator.Id]elevator.Order {
+func calculateOrders(hr hallRequests, cr map[elevator.Id]cabRequests, elevators map[elevator.Id]elevator.State, al map[elevator.Id]bool) map[elevator.Id]elevator.Order {
+	//only include states of alive elevators
+	newStates := make(map[elevator.Id]elevator.State)
+	for id, state := range elevators {
+		if al[id] {
+			newStates[id] = state
+		}
+	}
+	elevators = newStates
+
 	jsonState := marshal(hr, cr, elevators)
 
 	cmd := exec.Command(pathToAssigner, "-i", jsonState, "--includeCab")

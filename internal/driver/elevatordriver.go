@@ -12,6 +12,7 @@ import (
 
 // Global variables
 var doorTimerDuration = 3
+var engineTimerDuration = 10
 var elevatorStatePollRate = time.Millisecond * 1000
 
 func RunDriver(pollObstructionSwitch <-chan message.Obstruction,
@@ -20,6 +21,7 @@ func RunDriver(pollObstructionSwitch <-chan message.Obstruction,
 	toRequests chan<- message.RequestState,
 	toComms chan<- message.ElevatorState,
 	toOrders chan<- message.ElevatorState,
+	isSelfAlive chan<- bool,
 	local elevator.Id) {
 
 	// Init state, obstruction and timer
@@ -33,8 +35,11 @@ func RunDriver(pollObstructionSwitch <-chan message.Obstruction,
 	receiverStartDoorTimer := make(chan bool, 10)
 	timerDoor := time.NewTimer((time.Duration(doorTimerDuration)) * time.Second)
 	timerDoor.Stop()
+	timerEngine := time.NewTimer((time.Duration(engineTimerDuration)) * time.Second)
+	timerEngine.Stop()
 	tickerSendElevatorState := time.NewTicker(elevatorStatePollRate)
 	isObstructed := false
+	localAlive := true
 
 	clearRequestFun := func(btn elevator.ButtonType, floor elevator.Floor) {
 		clearRequest(local, btn, floor, toRequests)
@@ -49,6 +54,7 @@ func RunDriver(pollObstructionSwitch <-chan message.Obstruction,
 
 		case msg := <-pollFloorSensor:
 			log.Printf("[elevatordriver] Received floor sensor: %v", msg)
+			timerEngine.Reset(time.Duration(engineTimerDuration) * time.Second)
 			handleFloorsensorEvent(&state, order, msg.Floor, receiverStartDoorTimer, clearRequestFun)
 
 		case <-receiverStartDoorTimer:
@@ -70,9 +76,21 @@ func RunDriver(pollObstructionSwitch <-chan message.Obstruction,
 			} else {
 				timerDoor.Reset(time.Duration(doorTimerDuration) * time.Second)
 			}
+		case <-timerEngine.C:
+			log.Printf("[elevatordriver] Received engine timer message %v", isObstructed)
+			if state.Behavior == elevator.Moving || isObstructed {
+				localAlive = false
+				log.Printf("[elevatordriver] Elevator failure\n")
+				handleEngineTimerEvent(&state, order, isSelfAlive)
+				timerEngine.Reset(time.Duration(1) * time.Second)
+			} else {
+				localAlive = true
+				timerEngine.Reset(time.Duration(engineTimerDuration) * time.Second)
+
+			}
 		case <-tickerSendElevatorState.C:
-			toComms <- message.ElevatorState{Elevator: local, State: state}
-			toOrders <- message.ElevatorState{Elevator: local, State: state}
+			toComms <- message.ElevatorState{Elevator: local, State: state, Alive: localAlive}
+			toOrders <- message.ElevatorState{Elevator: local, State: state, Alive: localAlive}
 		}
 	}
 }
@@ -87,6 +105,7 @@ func driveToStaringPosition() {
 }
 
 func clearRequest(id elevator.Id, btn elevator.ButtonType, floor elevator.Floor, c chan<- message.RequestState) {
+
 	log.Printf("[elevatordriver] Cleared request at floor %v, button %v", floor, btn)
 	var req request.Request
 	switch btn {
