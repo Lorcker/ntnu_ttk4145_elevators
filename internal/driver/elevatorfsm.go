@@ -46,7 +46,7 @@ func (fsm *ElevatorFSM) HandleOrderEvent() {
 func (fsm *ElevatorFSM) HandleFloorsensorEvent(floor elevator.Floor) {
 	fsm.state.Floor = floor
 	elevatorio.SetFloorIndicator(floor)
-	if fsm.state.Behavior == elevator.Moving && fsm.ordersElevatorShouldStop() {
+	if fsm.ordersElevatorShouldStop() {
 		elevatorio.SetMotorDirection((0))
 		fsm.OpenDoor()
 		fsm.recieverDoorTimer <- true
@@ -56,15 +56,17 @@ func (fsm *ElevatorFSM) HandleFloorsensorEvent(floor elevator.Floor) {
 
 // When the door timer is finished, HandleDoorTimerEvent closes the door, and sends the elevator in the desired direction.
 func (fsm *ElevatorFSM) HandleDoorTimerEvent() {
+	if fsm.state.Behavior != elevator.DoorOpen {
+		return
+	}
+
+	fsm.ChooseDirection() // updates the behaviour and direction of the elevator
 	if fsm.state.Behavior == elevator.DoorOpen {
-		fsm.ChooseDirection() // updates the behaviour and direction of the elevator
-		if fsm.state.Behavior == elevator.DoorOpen {
-			fsm.recieverDoorTimer <- true
-			fsm.ordersClearAtCurrentFloor()
-		} else {
-			elevatorio.SetDoorOpenLamp(false)
-			elevatorio.SetMotorDirection(fsm.state.Direction)
-		}
+		fsm.recieverDoorTimer <- true
+		fsm.ordersClearAtCurrentFloor()
+	} else {
+		elevatorio.SetDoorOpenLamp(false)
+		elevatorio.SetMotorDirection(fsm.state.Direction)
 	}
 }
 

@@ -90,6 +90,10 @@ func (fsm *ElevatorFSM) ordersClearAtCurrentFloor() {
 
 // ordersElevatorShouldStop returns true if elevator should stop on that floor
 func (fsm *ElevatorFSM) ordersElevatorShouldStop() bool {
+	if fsm.state.Behavior != elevator.Moving {
+		return false
+	}
+
 	switch fsm.state.Direction {
 	case elevator.Down:
 		return fsm.orders[fsm.state.Floor][elevator.HallDown] || fsm.orders[fsm.state.Floor][elevator.Cab] || !fsm.ordersBelow()
