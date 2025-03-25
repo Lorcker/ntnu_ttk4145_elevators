@@ -51,17 +51,16 @@ func RunDriver(pollObstructionSwitch <-chan message.ObstructionSwitch,
 			log.Printf("[elevatordriver] Received floor sensor: %v", msg)
 			fsmHandleFloorsensorEvent(&state, order, receiverStartDoorTimer, clearRequestFun, msg.Floor)
 
-		case <-receiverStartDoorTimer:
-			log.Printf("[elevatordriver] Received open door message")
-			fsmOpenDoor(&state)
-			timerDoor.Reset(time.Duration(doorTimerDuration) * time.Second)
-
 		case <-pollObstructionSwitch:
 			log.Printf("[elevatordriver] Received obstruction message")
 			isObstructed = !isObstructed
 			if state.Behavior == elevator.DoorOpen {
 				timerDoor.Reset(time.Duration(doorTimerDuration) * time.Second)
 			}
+
+		case <-receiverStartDoorTimer:
+			log.Printf("[elevatordriver] Received open door message")
+			timerDoor.Reset(time.Duration(doorTimerDuration) * time.Second)
 
 		case <-timerDoor.C:
 			if state.Behavior == elevator.DoorOpen && !isObstructed {

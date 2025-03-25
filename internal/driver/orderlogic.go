@@ -2,7 +2,7 @@ package driver
 
 import "group48.ttk4145.ntnu/elevators/internal/models/elevator"
 
-func orderAbove(e elevator.State, orders elevator.Order) bool {
+func ordersAbove(e elevator.State, orders elevator.Order) bool {
 	if e.Floor >= elevator.NumFloors-1 {
 		return false
 	} //Already at top floor
@@ -17,7 +17,7 @@ func orderAbove(e elevator.State, orders elevator.Order) bool {
 	return false
 }
 
-func orderHere(e elevator.State, orders elevator.Order) bool {
+func ordersHere(e elevator.State, orders elevator.Order) bool {
 	for _, order := range orders[e.Floor] {
 		if order {
 			return true
@@ -26,7 +26,7 @@ func orderHere(e elevator.State, orders elevator.Order) bool {
 	return false
 }
 
-func orderBelow(e elevator.State, orders elevator.Order) bool {
+func ordersBelow(e elevator.State, orders elevator.Order) bool {
 	if e.Floor == 0 {
 		return false
 	} // Already at bottom floor
@@ -41,8 +41,8 @@ func orderBelow(e elevator.State, orders elevator.Order) bool {
 
 }
 
-// orderClearAtCurrentFloor clears the orders that are excecuted
-func orderClearAtCurrentFloor(e elevator.State, orders *elevator.Order, rr resolvedRequests) {
+// ordersClearAtCurrentFloor clears the orders that are excecuted
+func ordersClearAtCurrentFloor(e elevator.State, orders *elevator.Order, rr resolvedRequests) {
 	// If EverybodyGoesOn is set to true, then all orders clear if the elevator stops at a floor.
 	if EverybodyGoesOn {
 		for j := range len((*orders)[e.Floor]) {
@@ -57,7 +57,7 @@ func orderClearAtCurrentFloor(e elevator.State, orders *elevator.Order, rr resol
 
 		switch e.Direction {
 		case elevator.Up:
-			if !orderAbove(e, (*orders)) && !(*orders)[e.Floor][elevator.HallUp] { // Hall Down request is only cleared if it is not going further up
+			if !ordersAbove(e, (*orders)) && !(*orders)[e.Floor][elevator.HallUp] { // Hall Down request is only cleared if it is not going further up
 				(*orders)[e.Floor][elevator.HallDown] = false
 				rr(elevator.HallDown, e.Floor)
 			}
@@ -65,7 +65,7 @@ func orderClearAtCurrentFloor(e elevator.State, orders *elevator.Order, rr resol
 			rr(elevator.HallUp, e.Floor)
 
 		case elevator.Down:
-			if !orderBelow(e, (*orders)) && !(*orders)[e.Floor][elevator.HallDown] { // Hall Up request is only cleared if it is not going further down
+			if !ordersBelow(e, (*orders)) && !(*orders)[e.Floor][elevator.HallDown] { // Hall Up request is only cleared if it is not going further down
 				(*orders)[e.Floor][elevator.HallUp] = false
 				rr(elevator.HallUp, e.Floor)
 			}
@@ -85,20 +85,20 @@ func orderClearAtCurrentFloor(e elevator.State, orders *elevator.Order, rr resol
 
 }
 
-// orderElevatorShouldStop returns true if elevator should stop on that floor
-func orderElevatorShouldStop(e elevator.State, orders elevator.Order) bool {
+// ordersElevatorShouldStop returns true if elevator should stop on that floor
+func ordersElevatorShouldStop(e elevator.State, orders elevator.Order) bool {
 	switch e.Direction {
 	case elevator.Down:
-		return orders[e.Floor][elevator.HallDown] || orders[e.Floor][elevator.Cab] || !orderBelow(e, orders)
+		return orders[e.Floor][elevator.HallDown] || orders[e.Floor][elevator.Cab] || !ordersBelow(e, orders)
 	case elevator.Up:
-		return orders[e.Floor][elevator.HallUp] || orders[e.Floor][elevator.Cab] || !orderAbove(e, orders)
+		return orders[e.Floor][elevator.HallUp] || orders[e.Floor][elevator.Cab] || !ordersAbove(e, orders)
 	default:
 		return true
 	}
 }
 
-// orderShouldClearImmediatly returns true if a order that comes in should be handled immediatly
-func orderShouldClearImmediatly(e elevator.State, orders elevator.Order) bool {
+// ordersShouldClearImmediatly returns true if a order that comes in should be handled immediatly
+func ordersShouldClearImmediatly(e elevator.State, orders elevator.Order) bool {
 	if EverybodyGoesOn {
 		for i := range len(orders[e.Floor]) {
 			if orders[e.Floor][i] {
