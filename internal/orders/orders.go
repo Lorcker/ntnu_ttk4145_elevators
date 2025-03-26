@@ -30,7 +30,7 @@ func RunOrderServer(
 ) {
 
 	// cache stores the latest requests, elevator states and alive information
-	cache := newCache()
+	cache := newCache(localPeerId)
 	// old orders stores the last calculated orders and is used to check if the orders have changed
 	oldOrders := make(map[elevator.Id]elevator.Order)
 	// orderRefresh is a ticker that will trigger the order server to recalculate orders
@@ -52,10 +52,9 @@ func RunOrderServer(
 			cache.AddElevatorState(msg.Elevator, msg.State)
 
 		case <-orderRefresh.C:
-			if !cache.IsConsistent() {
+			if !cache.IsConsistent() || len(cache.AlivePeers) == 0 {
 				continue
 			}
-
 			newOrders := calculateOrders(cache.Hr, cache.Cr, cache.States)
 			if reflect.DeepEqual(newOrders, oldOrders) {
 				// Orders have not changed, no need to send an update to the elevator driver

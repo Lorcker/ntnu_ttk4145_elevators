@@ -12,6 +12,7 @@ import (
 
 // Global variables
 var doorTimerDuration = 3
+var engineTimerDuration = 10
 var elevatorStatePollRate = time.Millisecond * 1000
 
 func RunDriver(pollObstructionSwitch <-chan message.Obstruction,
@@ -20,6 +21,7 @@ func RunDriver(pollObstructionSwitch <-chan message.Obstruction,
 	toRequests chan<- message.RequestState,
 	toComms chan<- message.ElevatorState,
 	toOrders chan<- message.ElevatorState,
+	toEngineMonitor chan<- message.ElevatorState,
 	local elevator.Id) {
 
 	// Init state, obstruction and timer
@@ -64,28 +66,35 @@ func RunDriver(pollObstructionSwitch <-chan message.Obstruction,
 
 		case <-timerDoor.C:
 			if state.Behavior == elevator.DoorOpen && !isObstructed {
+				log.Printf("[elevatordriver] Received door closed message")
 				fsmHandleDoorTimerEvent(&state, order, receiverStartDoorTimer, clearRequestFun)
 			} else {
 				log.Printf("[elevatordriver] Received door closed message")
 				timerDoor.Reset(time.Duration(doorTimerDuration) * time.Second)
 			}
 		case <-tickerSendElevatorState.C:
-			toComms <- message.ElevatorState{Elevator: local, State: state}
-			toOrders <- message.ElevatorState{Elevator: local, State: state}
+			m := message.ElevatorState{Elevator: local, State: state}
+			toComms <- m
+			toOrders <- m
+			toEngineMonitor <- m
 		}
+
 	}
 }
 
 func driveToStaringPosition() {
+
 	if floor := elevatorio.GetFloor(); floor != 0 {
-		elevatorio.SetMotorDirection(-1)
 		for elevatorio.GetFloor() != 0 {
+			time.Sleep(time.Millisecond * 100)
+			elevatorio.SetMotorDirection(elevator.Down)
 		}
 		elevatorio.SetMotorDirection(0)
 	}
 }
 
 func clearRequest(id elevator.Id, btn elevator.ButtonType, floor elevator.Floor, c chan<- message.RequestState) {
+
 	log.Printf("[elevatordriver] Cleared request at floor %v, button %v", floor, btn)
 	var req request.Request
 	switch btn {

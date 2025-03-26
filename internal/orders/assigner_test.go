@@ -12,6 +12,7 @@ func Test_calculateOrders(t *testing.T) {
 		hr        hallRequests
 		cr        map[elevator.Id]cabRequests
 		elevators map[elevator.Id]elevator.State
+		alive     map[elevator.Id]bool
 	}
 	tests := []struct {
 		name string
@@ -42,6 +43,10 @@ func Test_calculateOrders(t *testing.T) {
 						Floor:     1,
 						Direction: elevator.Down,
 					},
+				},
+				alive: map[elevator.Id]bool{
+					1: true,
+					2: true,
 				},
 			},
 			want: map[elevator.Id]elevator.Order{},
