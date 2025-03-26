@@ -35,8 +35,6 @@ func RunDriver(pollObstructionSwitch <-chan message.Obstruction,
 	receiverStartDoorTimer := make(chan bool, 10)
 	timerDoor := time.NewTimer((time.Duration(doorTimerDuration)) * time.Second)
 	timerDoor.Stop()
-	timerEngine := time.NewTimer((time.Duration(engineTimerDuration)) * time.Second)
-	timerEngine.Stop()
 	tickerSendElevatorState := time.NewTicker(elevatorStatePollRate)
 	isObstructed := false
 
@@ -53,7 +51,6 @@ func RunDriver(pollObstructionSwitch <-chan message.Obstruction,
 
 		case msg := <-pollFloorSensor:
 			log.Printf("[elevatordriver] Received floor sensor: %v", msg)
-			timerEngine.Reset(time.Duration(engineTimerDuration) * time.Second)
 			handleFloorsensorEvent(&state, order, msg.Floor, receiverStartDoorTimer, clearRequestFun)
 
 		case <-receiverStartDoorTimer:
