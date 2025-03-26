@@ -1,54 +1,55 @@
 package driver
 
 import (
-	"fmt"
 	"log"
 
 	"group48.ttk4145.ntnu/elevators/internal/elevatorio"
 	"group48.ttk4145.ntnu/elevators/internal/models/elevator"
 )
 
-var EverybodyGoesOn bool = false
+const EverybodyGoesOn bool = false
 
 type resolvedRequests func(btn elevator.ButtonType, floor elevator.Floor)
 
-func handleOrderEvent(state *elevator.State, orders elevator.Order, recieverDoorTimer chan<- bool, rr resolvedRequests) {
+// fsmHandleOrderEvent updates the elevator state based on new orders
+func fsmHandleOrderEvent(state *elevator.State, orders elevator.Order, recieverDoorTimer chan<- bool, rr resolvedRequests) {
 	switch state.Behavior {
 	case elevator.Idle:
-		requestChooseDirection(state, orders, recieverDoorTimer)
+		fsmChooseDirection(state, orders) // Updates the behaviour and direction
 		if state.Behavior == elevator.DoorOpen {
-			requestClearAtCurrentFloor(*state, &orders, rr)
+			recieverDoorTimer <- true
+			ordersClearAtCurrentFloor(*state, &orders, rr) // Clears orders that is handled at the current floor.
 		} else if state.Behavior == elevator.Moving {
 			elevatorio.SetMotorDirection(state.Direction)
 		}
 
 	case elevator.DoorOpen:
-		if RequestShouldClearImmediatly(*state, orders) {
+		if ordersShouldClearImmediatly(*state, orders) { //If it is a order at the current floor that should be handled.
 			recieverDoorTimer <- true
-			requestClearAtCurrentFloor(*state, &orders, rr)
+			ordersClearAtCurrentFloor(*state, &orders, rr)
 		}
 	}
 }
 
-func handleFloorsensorEvent(state *elevator.State, orders elevator.Order, floor elevator.Floor, recieverDoorTimer chan<- bool, rr resolvedRequests) {
+// fsmHandleFloorsensorEvent updates the elevator state when arriving at a new floor
+func fsmHandleFloorsensorEvent(state *elevator.State, orders elevator.Order, recieverDoorTimer chan<- bool, rr resolvedRequests, floor elevator.Floor) {
 	state.Floor = floor
 	elevatorio.SetFloorIndicator(floor)
-
-	if state.Behavior == elevator.Moving && RequestShouldStop(*state, orders) {
+	if state.Behavior == elevator.Moving && ordersElevatorShouldStop(*state, orders) {
 		elevatorio.SetMotorDirection((0))
-		elevatorio.SetDoorOpenLamp(true)
-		requestClearAtCurrentFloor(*state, &orders, rr)
+		fsmOpenDoor(state)
 		recieverDoorTimer <- true
+		ordersClearAtCurrentFloor(*state, &orders, rr)
 	}
 }
 
-// When timer is done, close the door, and go in desired direction.
-func handleDoorTimerEvent(state *elevator.State, orders elevator.Order, recieverDoorTimer chan<- bool, rr resolvedRequests) {
-	if (*state).Behavior == elevator.DoorOpen {
-		requestChooseDirection(state, orders, recieverDoorTimer)
+// When the door timer is finished, fsmHandleDoorTimerEvent closes the door, and sends the elevator in the desired direction.
+func fsmHandleDoorTimerEvent(state *elevator.State, orders elevator.Order, recieverDoorTimer chan<- bool, rr resolvedRequests) {
+	if state.Behavior == elevator.DoorOpen {
+		fsmChooseDirection(state, orders) // updates the behaviour and direction of the elevator
 		if state.Behavior == elevator.DoorOpen {
 			recieverDoorTimer <- true
-			requestClearAtCurrentFloor(*state, &orders, rr)
+			ordersClearAtCurrentFloor(*state, &orders, rr)
 		} else {
 			elevatorio.SetDoorOpenLamp(false)
 			elevatorio.SetMotorDirection(state.Direction)
@@ -56,28 +57,25 @@ func handleDoorTimerEvent(state *elevator.State, orders elevator.Order, reciever
 	}
 }
 
-func openDoor(state *elevator.State) {
+// fsmOpenDoor sets updates elevator behaviour to doorOpen, and sets the light
+func fsmOpenDoor(state *elevator.State) {
 	log.Printf("[elevatorfsm] Door open\n")
 	elevatorio.SetDoorOpenLamp(true)
 	state.Behavior = elevator.DoorOpen
 }
 
-func emergencyStop(state *elevator.State) {
-	log.Printf("[elevatorfsm] Stop button not implemented :(\n")
-}
-
-// Little bit inspired by the given C-code :)
-func requestChooseDirection(e *elevator.State, orders elevator.Order, recieverDoorTimer chan<- bool) {
+// fsmChooseDirection updates the elevator direction and behaviour based on the current orders. Inspired by the given C-code.
+func fsmChooseDirection(e *elevator.State, orders elevator.Order) {
 	switch e.Direction {
 	case elevator.Up:
-		if requestAbove(*e, orders) {
+		if ordersAbove(*e, orders) {
 			e.Direction = elevator.Up
 			e.Behavior = elevator.Moving
-		} else if requestHere(*e, orders) {
+		} else if ordersHere(*e, orders) {
 			e.Direction = elevator.Stop
-			recieverDoorTimer <- true
+			fsmOpenDoor(e)
 
-		} else if requestBelow(*e, orders) {
+		} else if ordersBelow(*e, orders) {
 			e.Direction = elevator.Down
 			e.Behavior = elevator.Moving
 		} else {
@@ -86,13 +84,13 @@ func requestChooseDirection(e *elevator.State, orders elevator.Order, recieverDo
 		}
 
 	case elevator.Down:
-		if requestBelow(*e, orders) {
+		if ordersBelow(*e, orders) {
 			e.Direction = elevator.Down
 			e.Behavior = elevator.Moving
-		} else if requestHere(*e, orders) {
+		} else if ordersHere(*e, orders) {
 			e.Direction = elevator.Stop
-			recieverDoorTimer <- true
-		} else if requestAbove(*e, orders) {
+			fsmOpenDoor(e)
+		} else if ordersAbove(*e, orders) {
 			e.Direction = elevator.Up
 			e.Behavior = elevator.Moving
 		} else {
@@ -101,13 +99,13 @@ func requestChooseDirection(e *elevator.State, orders elevator.Order, recieverDo
 		}
 
 	case elevator.Stop:
-		if requestHere(*e, orders) {
+		if ordersHere(*e, orders) {
 			e.Direction = elevator.Stop
-			recieverDoorTimer <- true
-		} else if requestAbove(*e, orders) {
+			fsmOpenDoor(e)
+		} else if ordersAbove(*e, orders) {
 			e.Direction = elevator.Up
 			e.Behavior = elevator.Moving
-		} else if requestBelow(*e, orders) {
+		} else if ordersBelow(*e, orders) {
 			e.Direction = elevator.Down
 			e.Behavior = elevator.Moving
 		} else {
@@ -115,142 +113,4 @@ func requestChooseDirection(e *elevator.State, orders elevator.Order, recieverDo
 			e.Behavior = elevator.Idle
 		}
 	}
-}
-
-func requestAbove(e elevator.State, orders elevator.Order) bool {
-	if e.Floor >= elevator.NumFloors-1 {
-		return false
-	} //Already at top floor
-
-	for i := (e.Floor + 1); i < elevator.NumFloors; i++ {
-		for j := range orders[e.Floor] {
-			if orders[i][j] {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func requestHere(e elevator.State, orders elevator.Order) bool {
-	for _, order := range orders[e.Floor] {
-		if order {
-			return true
-		}
-	}
-	return false
-}
-
-func requestBelow(e elevator.State, orders elevator.Order) bool {
-	if e.Floor == 0 {
-		return false
-	} // Already at bottom floor
-	for i := e.Floor - 1; i >= 0; i-- {
-		for j := range len(orders[e.Floor]) {
-			if orders[i][j] {
-				return true
-			}
-		}
-	}
-	return false
-
-}
-
-func requestClearAtCurrentFloor(e elevator.State, orders *elevator.Order, rr resolvedRequests) {
-	//Definisjon. True: Alle ordre skal fjernes fra etasjen (alle går på). False: Bare de i samme retning.
-	if EverybodyGoesOn {
-		for j := range len((*orders)[e.Floor]) {
-			(*orders)[e.Floor][j] = false
-			rr(elevator.HallUp, e.Floor)
-			rr(elevator.HallDown, e.Floor)
-			rr(elevator.Cab, e.Floor)
-		}
-	} else {
-		(*orders)[e.Floor][elevator.Cab] = false
-		rr(elevator.Cab, e.Floor)
-
-		switch e.Direction {
-		case elevator.Up:
-			if !requestAbove(e, (*orders)) && !(*orders)[e.Floor][elevator.HallUp] {
-				(*orders)[e.Floor][elevator.HallDown] = false
-				rr(elevator.HallDown, e.Floor)
-			}
-			(*orders)[e.Floor][elevator.HallUp] = false
-			rr(elevator.HallUp, e.Floor)
-
-		case elevator.Down:
-			if !requestBelow(e, (*orders)) && !(*orders)[e.Floor][elevator.HallDown] {
-				(*orders)[e.Floor][elevator.HallUp] = false
-				rr(elevator.HallUp, e.Floor)
-			}
-			(*orders)[e.Floor][elevator.HallDown] = false
-			rr(elevator.HallDown, e.Floor)
-
-		case elevator.Stop:
-			fallthrough
-		default:
-			(*orders)[e.Floor][elevator.HallDown] = false
-			(*orders)[e.Floor][elevator.HallUp] = false
-			rr(elevator.HallDown, e.Floor)
-			rr(elevator.HallUp, e.Floor)
-		}
-
-	}
-
-}
-
-func RequestShouldStop(e elevator.State, orders elevator.Order) bool {
-	switch e.Direction {
-	case elevator.Down:
-		return orders[e.Floor][elevator.HallDown] || orders[e.Floor][elevator.Cab] || !requestBelow(e, orders)
-	case elevator.Up:
-		return orders[e.Floor][elevator.HallUp] || orders[e.Floor][elevator.Cab] || !requestAbove(e, orders)
-	default:
-		return true
-	}
-}
-
-// Decision: Have to decide if everyone will get in the state, even tho they might be going in the opposite direction.
-
-func RequestShouldClearImmediatly(e elevator.State, orders elevator.Order) bool {
-	if EverybodyGoesOn {
-		for i := range len(orders[e.Floor]) {
-			if orders[e.Floor][i] {
-				return true
-			}
-		}
-		return false
-	} else {
-		switch e.Direction {
-		case elevator.Up:
-			return orders[e.Floor][elevator.HallUp]
-		case elevator.Down:
-			return orders[e.Floor][elevator.HallDown]
-		case elevator.Stop:
-			return orders[e.Floor][elevator.Cab]
-		default:
-			return false
-		}
-	}
-}
-
-// Debug functions.
-func printOrders(orders elevator.Order) {
-	// Iterate through the outer slice (rows)
-	log.Printf("Floor\t Up\t Down\t Cab\n")
-	for i := range len(orders) {
-		// Iterate through the inner slice (columns) at each row
-		fmt.Printf("%d\t", i)
-		for j := range len(orders[i]) {
-			// Print the Order information
-			fmt.Printf("%t\t ", orders[i][j])
-		}
-		fmt.Printf("\n\n")
-	}
-}
-
-func printElevatorState(state elevator.State) {
-	log.Printf("[elevatorfsm]\n\nFloor: %d\n", state.Floor)
-	log.Printf("Behavior: %d\n", state.Behavior)
-	log.Printf("Direction: %d\n\n", state.Direction)
 }
