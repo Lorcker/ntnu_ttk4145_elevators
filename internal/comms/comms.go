@@ -14,7 +14,6 @@ const SendInterval = time.Millisecond * 100
 
 type udpMessage struct {
 	Source   elevator.Id
-	Alive    bool
 	Registry requestRegistry
 	EState   elevator.State
 }
@@ -30,6 +29,7 @@ func RunComms(
 	port int,
 	fromDriver <-chan message.ElevatorState,
 	fromRequests <-chan message.RequestState,
+	fromHealthMonitor <-chan message.ActivePeers,
 	toOrders chan<- message.ElevatorState,
 	toRequest chan<- message.RequestState,
 	toHealthMonitor chan<- message.PeerSignal) {
@@ -37,7 +37,7 @@ func RunComms(
 	var sendTicker = time.NewTicker(SendInterval)
 	var internalEsBuffer = make([]elevator.State, 0)
 	var registry = newRequestRegistry()
-	localAlive := true
+	var isLocalAlive = true
 
 	sendUdp := make(chan udpMessage)
 	receiveUdp := make(chan udpMessage)
@@ -47,13 +47,13 @@ func RunComms(
 	for {
 		select {
 		case msg := <-fromDriver:
-			handleDriverMessage(msg, &internalEsBuffer, &localAlive)
+			handleDriverMessage(msg, &internalEsBuffer)
 
 		case msg := <-fromRequests:
 			handleRequestMessage(msg, &registry)
 
 		case <-sendTicker.C:
-			if len(internalEsBuffer) == 0 {
+			if len(internalEsBuffer) == 0 || !isLocalAlive {
 				// No internal elevator state to send yet
 				continue
 			}
@@ -61,7 +61,6 @@ func RunComms(
 			u := udpMessage{
 				Source:   local,
 				Registry: registry,
-				Alive:    localAlive,
 				EState:   internalEsBuffer[0],
 			}
 			sendUdp <- u
@@ -70,7 +69,7 @@ func RunComms(
 				// Ignore messages from self
 				continue
 			}
-			toHealthMonitor <- message.PeerSignal{Id: msg.Source, Alive: msg.Alive}
+			toHealthMonitor <- message.PeerSignal{Id: msg.Source, Alive: true}
 			toOrders <- message.ElevatorState{Elevator: msg.Source, State: msg.EState}
 
 			changedRequests := registry.diff(msg.Source, msg.Registry)
@@ -78,12 +77,19 @@ func RunComms(
 			for _, msg := range changedRequests {
 				toRequest <- msg
 			}
+		case msg := <-fromHealthMonitor:
+			newStatus := isLocalDead(msg.Peers, local)
+			if newStatus == isLocalAlive {
+				break
+			}
+			log.Printf("[comms] Status of the local peer changed: %v -> %v", isLocalAlive, newStatus)
+			isLocalAlive = newStatus
 		}
 	}
 
 }
 
-func handleDriverMessage(msg message.ElevatorState, internalBuffer *[]elevator.State, localAlive *bool) {
+func handleDriverMessage(msg message.ElevatorState, internalBuffer *[]elevator.State) {
 	if len(*internalBuffer) != 0 && (*internalBuffer)[0] == msg.State {
 		return
 	}
@@ -95,7 +101,6 @@ func handleDriverMessage(msg message.ElevatorState, internalBuffer *[]elevator.S
 
 	log.Printf("[comms] Received new local elevator state update from [driver]: %v", msg)
 	(*internalBuffer)[0] = msg.State
-	*localAlive = msg.Alive
 }
 
 func handleRequestMessage(msg message.RequestState, registry *requestRegistry) {
@@ -106,6 +111,15 @@ func handleRequestMessage(msg message.RequestState, registry *requestRegistry) {
 	if before != after {
 		log.Printf("[comms] Updated registry after getting msg from [requests]:\n\tRequest: %v\n\tBef: %v\n\tAft: %v", msg, before, after)
 	}
+}
+
+func isLocalDead(aliveList []elevator.Id, local elevator.Id) bool {
+	for _, v := range aliveList {
+		if v == local {
+			return true
+		}
+	}
+	return false
 }
 
 func logRegistryDiff(peer elevator.Id, changed []message.RequestState, internal, external requestRegistry) {

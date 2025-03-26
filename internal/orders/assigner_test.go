@@ -54,7 +54,7 @@ func Test_calculateOrders(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := calculateOrders(tt.args.hr, tt.args.cr, tt.args.elevators, tt.args.alive); !reflect.DeepEqual(got, tt.want) {
+			if got := calculateOrders(tt.args.hr, tt.args.cr, tt.args.elevators); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("calculateOrders() = %v, want %v", got, tt.want)
 			}
 		})

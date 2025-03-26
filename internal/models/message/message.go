@@ -34,7 +34,7 @@ type Obstruction struct{}
 type ElevatorState struct {
 	// Elevator identifies which elevator's state has changed
 	Elevator elevator.Id
-	Alive    bool
+
 	// State contains the updated operational state information
 	State elevator.State
 }

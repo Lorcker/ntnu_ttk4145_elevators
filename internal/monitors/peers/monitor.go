@@ -29,37 +29,52 @@ type alivePeers = map[elevator.Id]bool
 // It listens for pings from the elevators and tracks which elevators are alive.
 func RunMonitor(
 	local elevator.Id,
-	pingFromComms <-chan message.PeerSignal,
+	peers <-chan message.PeerSignal,
 	alivenessToRequests chan<- message.ActivePeers,
-	alivenessToOrders chan<- message.ActivePeers) {
+	alivenessToOrders chan<- message.ActivePeers,
+	alivnessToComms chan<- message.ActivePeers) {
 
 	lastSeen := make(lastSeen)
 	alivePeers := make(alivePeers)
+	alivePeers[local] = true // Local is considered alive at startup
 
 	ticker := time.NewTicker(PollInterval)
 
-	localAlive := true
+	sendAliveness := func(alivePeers map[elevator.Id]bool) {
+		msg := message.ActivePeers{
+			Peers: mapToSlice(alivePeers),
+		}
+		log.Printf("[healthmonitor] Alive peers: %v", msg.Peers)
+		alivenessToOrders <- msg
+		alivenessToRequests <- msg
+		alivnessToComms <- msg
+	}
+
+	// send an intial allive message that included the local peer
+	sendAliveness(alivePeers)
 
 	for {
 		select {
-		case msg := <-pingFromComms:
-			processPing(msg, lastSeen)
+		case msg := <-peers:
+			if msg.Id == local && msg.Alive != alivePeers[local] {
+				print("Change")
+				alivePeers[local] = msg.Alive
+				sendAliveness(alivePeers)
+			} else {
+				processPeerPing(msg, lastSeen)
+			}
 
 		case <-ticker.C:
-			if !updateAliveList(lastSeen, alivePeers, local, localAlive) {
+			if !updateAliveList(lastSeen, alivePeers) {
 				continue
 			}
-			msg := message.ActivePeers{
-				Peers: mapToSlice(alivePeers),
-			}
-			log.Printf("[healthmonitor] Alive peers: %v", msg.Peers)
-			alivenessToOrders <- msg
-			alivenessToRequests <- msg
+
+			sendAliveness(alivePeers)
 		}
 	}
 }
 
-func processPing(msg message.PeerSignal, lastSeen lastSeen) {
+func processPeerPing(msg message.PeerSignal, lastSeen lastSeen) {
 	if msg.Alive {
 		if _, ok := lastSeen[msg.Id]; !ok {
 			log.Printf("[healthmonitor] A new peer with id %v is alive", msg.Id)
@@ -70,7 +85,7 @@ func processPing(msg message.PeerSignal, lastSeen lastSeen) {
 	}
 }
 
-func updateAliveList(lastSeen lastSeen, alivePeers alivePeers, local elevator.Id, localAlive bool) bool {
+func updateAliveList(lastSeen lastSeen, alivePeers alivePeers) bool {
 	changed := false
 	for id, t := range lastSeen {
 		if time.Since(t) < Timeout {
@@ -79,18 +94,10 @@ func updateAliveList(lastSeen lastSeen, alivePeers alivePeers, local elevator.Id
 				changed = true
 			}
 		} else if alivePeers[id] {
-			delete(alivePeers, id)
+			alivePeers[id] = false
 			changed = true
 			log.Printf("[healthmonitor] The Peer with id %v has died", id)
 		}
-	}
-	if localAlive && !alivePeers[local] {
-		alivePeers[local] = true
-		changed = true
-	} else if !localAlive && alivePeers[local] {
-		log.Printf("[healthmonitor] The local peer has died")
-		delete(alivePeers, local)
-		changed = true
 	}
 
 	return changed
@@ -99,8 +106,10 @@ func updateAliveList(lastSeen lastSeen, alivePeers alivePeers, local elevator.Id
 // mapToSlice converts a map to a slice
 func mapToSlice(m map[elevator.Id]bool) []elevator.Id {
 	s := make([]elevator.Id, 0, len(m))
-	for id := range m {
-		s = append(s, id)
+	for id, alive := range m {
+		if alive {
+			s = append(s, id)
+		}
 	}
 	return s
 }

@@ -21,7 +21,7 @@ func RunDriver(pollObstructionSwitch <-chan message.Obstruction,
 	toRequests chan<- message.RequestState,
 	toComms chan<- message.ElevatorState,
 	toOrders chan<- message.ElevatorState,
-	isSelfAlive chan<- bool,
+	toEngineMonitor chan<- message.ElevatorState,
 	local elevator.Id) {
 
 	// Init state, obstruction and timer
@@ -39,7 +39,6 @@ func RunDriver(pollObstructionSwitch <-chan message.Obstruction,
 	timerEngine.Stop()
 	tickerSendElevatorState := time.NewTicker(elevatorStatePollRate)
 	isObstructed := false
-	localAlive := true
 
 	clearRequestFun := func(btn elevator.ButtonType, floor elevator.Floor) {
 		clearRequest(local, btn, floor, toRequests)
@@ -70,35 +69,28 @@ func RunDriver(pollObstructionSwitch <-chan message.Obstruction,
 			}
 
 		case <-timerDoor.C:
-			log.Printf("[elevatordriver] Received door closed message")
 			if state.Behavior == elevator.DoorOpen && !isObstructed {
+				log.Printf("[elevatordriver] Received door closed message")
 				handleDoorTimerEvent(&state, order, receiverStartDoorTimer, clearRequestFun)
 			} else {
 				timerDoor.Reset(time.Duration(doorTimerDuration) * time.Second)
 			}
-		case <-timerEngine.C:
-			log.Printf("[elevatordriver] Received engine timer message %v", isObstructed)
-			if state.Behavior == elevator.Moving || isObstructed {
-				localAlive = false
-				log.Printf("[elevatordriver] Elevator failure\n")
-				handleEngineTimerEvent(&state, order, isSelfAlive)
-				timerEngine.Reset(time.Duration(1) * time.Second)
-			} else {
-				localAlive = true
-				timerEngine.Reset(time.Duration(engineTimerDuration) * time.Second)
-
-			}
 		case <-tickerSendElevatorState.C:
-			toComms <- message.ElevatorState{Elevator: local, State: state, Alive: localAlive}
-			toOrders <- message.ElevatorState{Elevator: local, State: state, Alive: localAlive}
+			m := message.ElevatorState{Elevator: local, State: state}
+			toComms <- m
+			toOrders <- m
+			toEngineMonitor <- m
 		}
+
 	}
 }
 
 func driveToStaringPosition() {
+
 	if floor := elevatorio.GetFloor(); floor != 0 {
-		elevatorio.SetMotorDirection(-1)
 		for elevatorio.GetFloor() != 0 {
+			time.Sleep(time.Millisecond * 100)
+			elevatorio.SetMotorDirection(elevator.Down)
 		}
 		elevatorio.SetMotorDirection(0)
 	}

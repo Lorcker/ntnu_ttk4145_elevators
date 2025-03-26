@@ -56,18 +56,6 @@ func handleDoorTimerEvent(state *elevator.State, orders elevator.Order, reciever
 	}
 }
 
-// Handle the timer event for the engine, to see if the elevator is stuck.
-func handleEngineTimerEvent(state *elevator.State, orders elevator.Order, isSelfAlive chan<- bool) {
-	if state.Behavior == elevator.Moving {
-		log.Printf("[elevatorfsm] Elevator failure\n")
-		isSelfAlive <- false
-		elevatorio.SetMotorDirection(0)
-		state.Direction = elevator.Stop
-		state.Behavior = elevator.Idle
-	}
-
-}
-
 func openDoor(state *elevator.State) {
 	log.Printf("[elevatorfsm] Door open\n")
 	elevatorio.SetDoorOpenLamp(true)
