@@ -45,7 +45,7 @@ func RunDriver(pollObstructionSwitch <-chan message.Obstruction,
 		case msg := <-pollOrders:
 			order = msg.Order
 			log.Printf("[elevatordriver] Received new orders:\n\t%v", elevator.OrderToString(order))
-			fmsHandleOrderEvent(&state, order, receiverStartDoorTimer, clearRequestFun)
+			fsmHandleOrderEvent(&state, order, receiverStartDoorTimer, clearRequestFun)
 
 		case msg := <-pollFloorSensor:
 			log.Printf("[elevatordriver] Received floor sensor: %v", msg)
