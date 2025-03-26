@@ -27,11 +27,11 @@ type udpMessage struct {
 func RunComms(
 	local elevator.Id,
 	port int,
-	fromDriver <-chan message.ElevatorStateUpdate,
-	fromRequests <-chan message.RequestStateUpdate,
-	toOrders chan<- message.ElevatorStateUpdate,
-	toRequest chan<- message.RequestStateUpdate,
-	toHealthMonitor chan<- message.PeerHeartbeat) {
+	fromDriver <-chan message.ElevatorState,
+	fromRequests <-chan message.RequestState,
+	toOrders chan<- message.ElevatorState,
+	toRequest chan<- message.RequestState,
+	toHealthMonitor chan<- message.PeerSignal) {
 
 	var sendTicker = time.NewTicker(SendInterval)
 	var internalEsBuffer = make([]elevator.State, 0)
@@ -45,23 +45,10 @@ func RunComms(
 	for {
 		select {
 		case msg := <-fromDriver:
-			if len(internalEsBuffer) == 0 {
-				internalEsBuffer = append(internalEsBuffer, msg.State)
-				log.Printf("[comms] Received initial local elevator state update from [driver]: %v", msg)
-			} else if internalEsBuffer[0] != msg.State {
-				log.Printf("[comms] Received new local elevator state update from [driver]: %v", msg)
-				internalEsBuffer[0] = msg.State
-			}
+			handleDriverMessage(msg, &internalEsBuffer)
 
 		case msg := <-fromRequests:
-			before := fmt.Sprintf("%v", registry)
-
-			registry.update(msg.Request)
-
-			after := fmt.Sprintf("%v", registry)
-			if before != after {
-				log.Printf("[comms] Updated registry after getting msg from [requests]:\n\tRequest: %v\n\tBefore: %v\n\tAfter: %v", msg, before, after)
-			}
+			handleRequestMessage(msg, &registry)
 
 		case <-sendTicker.C:
 			if len(internalEsBuffer) == 0 {
@@ -78,20 +65,56 @@ func RunComms(
 
 		case msg := <-receiveUdp:
 			if msg.Source == local {
+				// Ignore messages from self
 				continue
 			}
 
-			toHealthMonitor <- message.PeerHeartbeat{Id: msg.Source}
-			toOrders <- message.ElevatorStateUpdate{Elevator: msg.Source, State: msg.EState}
+			toHealthMonitor <- message.PeerSignal{Id: msg.Source}
+			toOrders <- message.ElevatorState{Elevator: msg.Source, State: msg.EState}
 
 			changedRequests := registry.diff(msg.Source, msg.Registry)
-			if len(changedRequests) > 0 {
-				log.Printf("[comms] Received an external registry that changed state:\n\tFromPeer: %d\n\tChangedReqs: %v\n\tInternalRegistry:%v\n\tExternalRegistry:%v", msg.Source, changedRequests, registry, msg.Registry)
-			}
+			logRegistryDiff(msg.Source, changedRequests, registry, msg.Registry)
 			for _, msg := range changedRequests {
 				toRequest <- msg
 			}
 		}
 	}
 
+}
+
+func handleDriverMessage(msg message.ElevatorState, internalBuffer *[]elevator.State) {
+	if len(*internalBuffer) != 0 && (*internalBuffer)[0] == msg.State {
+		return
+	}
+
+	if len(*internalBuffer) == 0 {
+		*internalBuffer = append(*internalBuffer, msg.State)
+		log.Printf("[comms] Received initial local elevator state update from [driver]: %v", msg)
+	}
+
+	log.Printf("[comms] Received new local elevator state update from [driver]: %v", msg)
+	(*internalBuffer)[0] = msg.State
+}
+
+func handleRequestMessage(msg message.RequestState, registry *requestRegistry) {
+	before := fmt.Sprintf("%v", registry)
+	registry.update(msg.Request)
+	after := fmt.Sprintf("%v", registry)
+
+	if before != after {
+		log.Printf("[comms] Updated registry after getting msg from [requests]:\n\tRequest: %v\n\tBef: %v\n\tAft: %v", msg, before, after)
+	}
+}
+
+func logRegistryDiff(peer elevator.Id, changed []message.RequestState, internal, external requestRegistry) {
+	if len(changed) == 0 {
+		return
+	}
+	c := ""
+	for _, req := range changed {
+		c += fmt.Sprintf("\t%v\n", req.Request)
+	}
+	registry := fmt.Sprintf("\tRegistries:\n\tInternal: %v\n\tExternal: %v", internal, external)
+	changedRequests := fmt.Sprintf("\tChanged requests:\n%v", c)
+	log.Printf("[comms] Received registry diff from %v that caused updates:\n%v\n%v", peer, changedRequests, registry)
 }

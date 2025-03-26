@@ -1,6 +1,8 @@
 package requests
 
 import (
+	"log"
+
 	"group48.ttk4145.ntnu/elevators/internal/models/elevator"
 	"group48.ttk4145.ntnu/elevators/internal/models/message"
 	"group48.ttk4145.ntnu/elevators/internal/models/request"
@@ -24,8 +26,8 @@ type requestManager struct {
 	// local id is needed to add the local elevator to the ledgers.
 	local elevator.Id
 
-	// store contains the latest state of each request.
-	store map[request.Origin]request.Request
+	// statusByOrigin contains the latest state of each request.
+	statusByOrigin map[request.Origin]request.Status
 
 	// ledgerTracker keeps track of which peers have acknowledged a request.
 	// It is needed to move requests from Unconfirmed to Confirmed state.
@@ -39,105 +41,102 @@ type requestManager struct {
 // newRequestManager creates a new request manager
 func newRequestManager(local elevator.Id) *requestManager {
 	return &requestManager{
-		local:         local,
-		store:         make(map[request.Origin]request.Request),
-		ledgerTracker: newLedgerManager(),
-		alivePeers:    make([]elevator.Id, 0),
+		local:          local,
+		statusByOrigin: make(map[request.Origin]request.Status),
+		ledgerTracker:  newLedgerManager(),
+		alivePeers:     make([]elevator.Id, 0),
 	}
 }
 
-// process processes a request message and returns the updated request.
+func (rm *requestManager) UpdateAlivePeers(peers []elevator.Id) {
+	rm.alivePeers = peers
+	log.Printf("[requests] [manager] Alive peers updated: %v", rm.alivePeers)
+}
+
+// Process processes a request message and returns the updated request.
 //
 // Processed requests are stored in the request manager to keep track of the state of each request.
-func (rm *requestManager) process(msg message.RequestStateUpdate) request.Request {
-	if _, ok := rm.store[msg.Request.Origin]; !ok {
-		rm.store[msg.Request.Origin] = msg.Request
+func (rm *requestManager) Process(msg message.RequestState) request.Request {
+	if _, ok := rm.statusByOrigin[msg.Request.Origin]; !ok {
+		rm.statusByOrigin[msg.Request.Origin] = msg.Request.Status
 	}
 
+	var updatedStatus request.Status
 	switch msg.Request.Status {
 	case request.Absent:
-		return rm.processAbsent(msg)
+		updatedStatus = rm.processAbsent(msg)
 	case request.Unconfirmed:
-		return rm.processUnconfirmed(msg)
+		updatedStatus = rm.processUnconfirmed(msg)
 	case request.Confirmed:
-		return rm.processConfirmed(msg)
+		updatedStatus = rm.processConfirmed(msg)
 	default:
-		return rm.processUnknown(msg)
+		updatedStatus = rm.processUnknown(msg)
 	}
 
+	oldStatus := rm.statusByOrigin[msg.Request.Origin]
+	rm.statusByOrigin[msg.Request.Origin] = updatedStatus
+
+	if oldStatus != updatedStatus {
+		// The request has changed state, so we log it.
+		log.Printf("[requests] [manager] Request status changed: %v -> %v for %v", oldStatus, updatedStatus, msg.Request.Origin)
+	}
+
+	msg.Request.Status = updatedStatus // Status must always be updated to create a new request object
+	return msg.Request
 }
 
 // processUnknown processes a request with an Unknown status.
-func (rm *requestManager) processUnknown(msg message.RequestStateUpdate) request.Request {
+func (rm *requestManager) processUnknown(msg message.RequestState) request.Status {
 	// As a request with an Unknown status does not add any new information,
 	// the stored request is returned as is.
-	return rm.store[msg.Request.Origin]
+	return rm.statusByOrigin[msg.Request.Origin]
 }
 
 // processAbsent processes a request with an Absent status.
-func (rm *requestManager) processAbsent(msg message.RequestStateUpdate) request.Request {
-	if msg.Request.Status != request.Absent {
-		return msg.Request
-	}
-
-	storedRequest := rm.store[msg.Request.Origin]
-	if storedRequest.Status == request.Confirmed || storedRequest.Status == request.Unknown {
+func (rm *requestManager) processAbsent(msg message.RequestState) request.Status {
+	currentStatus := rm.statusByOrigin[msg.Request.Origin]
+	if currentStatus == request.Confirmed || currentStatus == request.Unknown {
 		// Acknowledgement from the other peers is not needed,
 		// as a request could only have been confirmed if all peers acknowledged it in the first place
-		storedRequest.Status = request.Absent
+		return request.Absent
 	}
 
-	rm.store[msg.Request.Origin] = storedRequest
-	return storedRequest
+	return currentStatus
 }
 
 // processUnconfirmed processes a request with an Unconfirmed status.
-func (rm *requestManager) processUnconfirmed(msg message.RequestStateUpdate) request.Request {
-	if msg.Request.Status != request.Unconfirmed {
-		return msg.Request
-	}
-
-	storedRequest := rm.store[msg.Request.Origin]
-	if storedRequest.Status == request.Confirmed {
+func (rm *requestManager) processUnconfirmed(msg message.RequestState) request.Status {
+	currentStatus := rm.statusByOrigin[msg.Request.Origin]
+	if currentStatus == request.Confirmed {
 		// The stored version is already confirmed, so we return it as is
-		return storedRequest
+		return currentStatus
 	}
 
 	rm.ledgerTracker.addLedger(msg.Request.Origin, msg.Source)
 	rm.ledgerTracker.addLedger(msg.Request.Origin, rm.local)
 
 	if rm.ledgerTracker.isMessageAcknowledged(msg.Request.Origin, rm.alivePeers) {
-		storedRequest.Status = request.Confirmed
-
 		// Ledgers are reset as the next time the request reaches the Unconfirmed state,
 		// it must be acknowledged by all peers again.
 		rm.ledgerTracker.resetLedgers(msg.Request.Origin)
-	} else {
-		storedRequest.Status = request.Unconfirmed
+		return request.Confirmed
 	}
 
-	rm.store[msg.Request.Origin] = storedRequest
-	return storedRequest
+	return request.Unconfirmed
 }
 
 // processConfirmed processes a request with a Confirmed status.
-func (rm *requestManager) processConfirmed(msg message.RequestStateUpdate) request.Request {
-	if msg.Request.Status != request.Confirmed {
-		return msg.Request
-	}
+func (rm *requestManager) processConfirmed(msg message.RequestState) request.Status {
+	currentStatus := rm.statusByOrigin[msg.Request.Origin]
 
-	storedRequest := rm.store[msg.Request.Origin]
-
-	if storedRequest.Status != request.Unconfirmed {
+	if currentStatus != request.Unconfirmed {
 		// Either the request is already confirmed locally, so we can return it as is,
 		// or the stored request is absent. In the latter case, we should not change the status,
 		// this means that an elevator has cleared the request, and the request should not be re-added.
-		return storedRequest
+		return currentStatus
 	}
 
 	// If the stored request is currently Unconfirmed, the request is updated to Confirmed.
 	// This is okay, as the request could only have been confirmed if all peers acknowledged it in the first place.
-	storedRequest.Status = request.Confirmed
-	rm.store[msg.Request.Origin] = storedRequest
-	return storedRequest
+	return request.Confirmed
 }

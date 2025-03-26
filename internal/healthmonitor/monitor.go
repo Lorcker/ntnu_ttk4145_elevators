@@ -6,7 +6,6 @@ package healthmonitor
 
 import (
 	"log"
-	"reflect"
 	"time"
 
 	"group48.ttk4145.ntnu/elevators/internal/models/elevator"
@@ -22,60 +21,68 @@ const PollInterval = time.Second * 1
 // lastSeen is a map of the last time a ping was received from an elevator.
 type lastSeen = map[elevator.Id]time.Time
 
+// alivePeers is a map of the alive elevators.
+type alivePeers = map[elevator.Id]bool
+
 // RunMonitor runs the health monitor
 //
 // It listens for pings from the elevators and tracks which elevators are alive.
 func RunMonitor(
 	local elevator.Id,
-	pingFromComms <-chan message.PeerHeartbeat,
-	alivenessToRequests chan<- message.AlivePeersUpdate,
-	alivenessToOrders chan<- message.AlivePeersUpdate) {
+	pingFromComms <-chan message.PeerSignal,
+	alivenessToRequests chan<- message.ActivePeers,
+	alivenessToOrders chan<- message.ActivePeers) {
 
-	var lastSeen = make(lastSeen)
-	var alivePeers = make(map[elevator.Id]bool)
+	lastSeen := make(lastSeen)
+	alivePeers := make(alivePeers)
 
 	ticker := time.NewTicker(PollInterval)
 
 	for {
 		select {
 		case msg := <-pingFromComms:
-			if _, ok := lastSeen[msg.Id]; !ok {
-				log.Printf("[healthmonitor] A new pear is alive %v", msg.Id)
-			}
-			lastSeen[msg.Id] = time.Now()
+			processPing(msg, lastSeen)
 		case <-ticker.C:
-			a := getAlive(lastSeen)
-			a[local] = true // Always consider yourself alive
-
-			if reflect.DeepEqual(a, alivePeers) {
-				// No need to notify if the list of alive peers is the same
+			if !updateAliveList(lastSeen, alivePeers, local) {
 				continue
 			}
 
-			alivePeers = a
-
-			log.Printf("[healthmonitor] Notifying [orders] and [requests] that he alive list changed: %v", a)
-			msg := message.AlivePeersUpdate{
+			msg := message.ActivePeers{
 				Peers: mapToSlice(alivePeers),
 			}
-
 			alivenessToOrders <- msg
 			alivenessToRequests <- msg
 		}
 	}
 }
 
-// getAlive returns a map of the alive elevators
-//
-// An elevator is considered alive if a ping has been received from it within the last Timeout.
-func getAlive(ls lastSeen) map[elevator.Id]bool {
-	var a = make(map[elevator.Id]bool)
-	for id, t := range ls {
+func processPing(msg message.PeerSignal, lastSeen lastSeen) {
+	if _, ok := lastSeen[msg.Id]; !ok {
+		log.Printf("[healthmonitor] A new peer with id %v is alive", msg.Id)
+	}
+	lastSeen[msg.Id] = time.Now()
+}
+
+func updateAliveList(lastSeen lastSeen, alivePeers alivePeers, local elevator.Id) bool {
+	changed := false
+	for id, t := range lastSeen {
 		if time.Since(t) < Timeout {
-			a[id] = true
+			if !alivePeers[id] {
+				alivePeers[id] = true
+				changed = true
+			}
+		} else if alivePeers[id] {
+			delete(alivePeers, id)
+			changed = true
+			log.Printf("[healthmonitor] The Peer with id %v has died", id)
 		}
 	}
-	return a
+	if !alivePeers[local] {
+		// the local elevator is always alive
+		alivePeers[local] = true
+		changed = true
+	}
+	return changed
 }
 
 // mapToSlice converts a map to a slice

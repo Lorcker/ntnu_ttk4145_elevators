@@ -55,7 +55,7 @@ func SetStopLamp(value bool) {
 	write([4]byte{5, toByte(value), 0, 0})
 }
 
-func PollNewRequests(receiver chan<- message.RequestStateUpdate) {
+func PollNewRequests(receiver chan<- message.RequestState) {
 	prev := make([][3]bool, _numFloors)
 	for {
 		time.Sleep(_pollRate)
@@ -74,7 +74,7 @@ func PollNewRequests(receiver chan<- message.RequestStateUpdate) {
 					case elevator.Cab:
 						req = request.NewCabRequest(elevator.Floor(f), _local, request.Unconfirmed)
 					}
-					receiver <- message.RequestStateUpdate{Source: _local, Request: req}
+					receiver <- message.RequestState{Source: _local, Request: req}
 				}
 				prev[f][b] = wasPressed
 			}
@@ -82,13 +82,13 @@ func PollNewRequests(receiver chan<- message.RequestStateUpdate) {
 	}
 }
 
-func PollFloorSensor(receiver chan<- message.FloorSensor) {
+func PollFloorSensor(receiver chan<- message.FloorArrival) {
 	prev := -1
 	for {
 		time.Sleep(_pollRate)
 		v := GetFloor()
 		if v != prev && v != -1 {
-			receiver <- message.FloorSensor{Floor: elevator.Floor(v)}
+			receiver <- message.FloorArrival{Floor: elevator.Floor(v)}
 		}
 		prev = v
 	}
@@ -106,13 +106,13 @@ func PollStopButton(receiver chan<- bool) {
 	}
 }
 
-func PollObstructionSwitch(receiver chan<- message.ObstructionSwitch) {
+func PollObstructionSwitch(receiver chan<- message.Obstruction) {
 	prev := false
 	for {
 		time.Sleep(_pollRate)
 		v := GetObstruction()
 		if v != prev {
-			receiver <- message.ObstructionSwitch{}
+			receiver <- message.Obstruction{}
 		}
 		prev = v
 	}

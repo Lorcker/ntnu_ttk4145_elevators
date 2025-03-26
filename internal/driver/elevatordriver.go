@@ -14,12 +14,12 @@ import (
 var doorTimerDuration = 3
 var elevatorStatePollRate = time.Millisecond * 1000
 
-func RunDriver(pollObstructionSwitch <-chan message.ObstructionSwitch,
-	pollFloorSensor <-chan message.FloorSensor,
-	pollOrders <-chan message.Order,
-	toRequests chan<- message.RequestStateUpdate,
-	toComms chan<- message.ElevatorStateUpdate,
-	toOrders chan<- message.ElevatorStateUpdate,
+func RunDriver(pollObstructionSwitch <-chan message.Obstruction,
+	pollFloorSensor <-chan message.FloorArrival,
+	pollOrders <-chan message.ServiceOrder,
+	toRequests chan<- message.RequestState,
+	toComms chan<- message.ElevatorState,
+	toOrders chan<- message.ElevatorState,
 	local elevator.Id) {
 
 	// Init state, obstruction and timer
@@ -44,8 +44,8 @@ func RunDriver(pollObstructionSwitch <-chan message.ObstructionSwitch,
 		select {
 		case msg := <-pollOrders:
 			order = msg.Order
-			log.Printf("[elevatordriver] Received new orders: %v", order)
-			fsmHandleOrderEvent(&state, order, receiverStartDoorTimer, clearRequestFun)
+			log.Printf("[elevatordriver] Received new orders:\n\t%v", elevator.OrderToString(order))
+			fmsHandleOrderEvent(&state, order, receiverStartDoorTimer, clearRequestFun)
 
 		case msg := <-pollFloorSensor:
 			log.Printf("[elevatordriver] Received floor sensor: %v", msg)
@@ -70,8 +70,8 @@ func RunDriver(pollObstructionSwitch <-chan message.ObstructionSwitch,
 				timerDoor.Reset(time.Duration(doorTimerDuration) * time.Second)
 			}
 		case <-tickerSendElevatorState.C:
-			toComms <- message.ElevatorStateUpdate{Elevator: local, State: state}
-			toOrders <- message.ElevatorStateUpdate{Elevator: local, State: state}
+			toComms <- message.ElevatorState{Elevator: local, State: state}
+			toOrders <- message.ElevatorState{Elevator: local, State: state}
 		}
 	}
 }
@@ -85,7 +85,7 @@ func driveToStaringPosition() {
 	}
 }
 
-func clearRequest(id elevator.Id, btn elevator.ButtonType, floor elevator.Floor, c chan<- message.RequestStateUpdate) {
+func clearRequest(id elevator.Id, btn elevator.ButtonType, floor elevator.Floor, c chan<- message.RequestState) {
 	log.Printf("[elevatordriver] Cleared request at floor %v, button %v", floor, btn)
 	var req request.Request
 	switch btn {
@@ -96,7 +96,7 @@ func clearRequest(id elevator.Id, btn elevator.ButtonType, floor elevator.Floor,
 	case elevator.HallDown:
 		req = request.NewHallRequest(floor, request.Down, request.Absent)
 	}
-	msg := message.RequestStateUpdate{
+	msg := message.RequestState{
 		Source:  id,
 		Request: req,
 	}

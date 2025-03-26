@@ -1,3 +1,8 @@
+// Package message defines the communication data structures used between system modules.
+//
+// This package contains all message types used for inter-module communication within
+// the elevator system. Each message type serves a specific purpose in the system's
+// operation and follows defined flow patterns between modules.
 package message
 
 import (
@@ -5,68 +10,69 @@ import (
 	"group48.ttk4145.ntnu/elevators/internal/models/request"
 )
 
-// FloorSensor is a message that is sent when the elevator reaches a new floor
+// FloorArrival is a message sent when an elevator arrives at or passes a floor.
 //
-// Module Flows:
-//
-//	[elevio] -> [driver]
-type FloorSensor struct {
+// Flow path: [elevio] -> [driver]
+type FloorArrival struct {
+	// Floor indicates which floor the elevator has arrived at
 	Floor elevator.Floor
 }
 
-// ObstructionSwitch is a message that is sent when the obstruction switch is toggled
+// Obstruction is a message sent when the elevator's obstruction switch is toggled.
+// This switch typically detects if something is blocking the door.
 //
-// Module Flows:
-//
-//	[elevio] -> [driver]
-type ObstructionSwitch struct{}
+// Flow path: [elevio] -> [driver]
+type Obstruction struct{}
 
-// ElevatorStateUpdate is a message that is sent when the state of an elevator changes
+// ElevatorState is a message sent when the operational state of an elevator changes.
+// This includes changes in floor position, behavior mode, or movement direction.
 //
-// Module Flows:
-//
-//	[driver] -> [comms]
-//	[driver] -> [orders]
-//	[comms] -> [order]
-type ElevatorStateUpdate struct {
+// Flow paths:
+//   - [driver] -> [comms]  (local elevator state updates sent to peers)
+//   - [driver] -> [orders] (local elevator state updates for order calculation)
+//   - [comms] -> [orders]  (external elevator state updates received from peers)
+type ElevatorState struct {
+	// Elevator identifies which elevator's state has changed
 	Elevator elevator.Id
-	State    elevator.State
+	// State contains the updated operational state information
+	State elevator.State
 }
 
-// Order is a message that is sent when new orders are calculated
+// ServiceOrder is a message sent when new service orders have been calculated for an elevator.
 //
-// Module Flows:
-//
-//	[orders] -> [driver]
-type Order struct {
+// Flow path: [orders] -> [driver]
+type ServiceOrder struct {
+	// Order contains the calculated service orders for the elevator
 	Order elevator.Order
 }
 
-// RequestStateUpdate is a message that is sent when the state of a request changes
+// RequestState is a message sent when the lifecycle state of a service request changes.
+// This includes new requests, confirmed requests, and completed requests.
 //
-// Module Flows:
-//
-//	[request] <-> [comms]
-type RequestStateUpdate struct {
-	Source  elevator.Id
+// Flow paths: Between [requests] and [comms] modules in both directions
+type RequestState struct {
+	// Source identifies which elevator initiated this update
+	Source elevator.Id
+	// Request contains the updated request information
 	Request request.Request
 }
 
-// PeerHeartbeat is a message that is sent when a message is received from a peer
+// PeerSignal is a message sent when communication is received from another elevator.
+// It serves as proof that another elevator in the system is operational.
 //
-// Module Flows:
-//
-//	[comms] -> [healthmonitor]
-type PeerHeartbeat struct {
+// Flow path: [comms] -> [healthmonitor]
+type PeerSignal struct {
+	// Id identifies which elevator sent the heartbeat
 	Id elevator.Id
 }
 
-// AlivePeersUpdate is a message that is sent when the list of alive peers changes
+// ActivePeers is a message sent when the set of operational elevators changes.
+// This includes both new elevators joining and existing elevators becoming unresponsive.
 //
-// Module Flows:
-//
-//	[healthmonitor] -> [requests]
-//	[healthmonitor] -> [orders]
-type AlivePeersUpdate struct {
+// Flow paths:
+//   - [healthmonitor] -> [requests] (for managing request acknowledgments)
+//   - [healthmonitor] -> [orders]   (for calculating optimal order assignments)
+type ActivePeers struct {
+	// Peers contains the IDs of all elevators currently known to be operational
 	Peers []elevator.Id
 }

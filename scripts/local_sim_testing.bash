@@ -37,6 +37,7 @@ CONFIG_TEMPLATE='{
 # Store PIDs of simulator and Go program instances
 SIMULATOR_PIDS=()
 GO_PIDS=()
+GO_STATUS=()
 
 # Function to clean up processes
 cleanup() {
@@ -54,8 +55,10 @@ cleanup() {
 # Trap Ctrl+C to kill all instances and cleanup
 trap cleanup INT
 
-# Create configuration files and start instances
-for i in {1..1}; do
+# Function to start a new elevator instance
+start_elevator_instance() {
+    local i=$1
+    
     SIMULATOR_PORT=$((SIMULATOR_BASE_PORT + i))
     CONFIG_FILE="config_$i.json"
 
@@ -77,11 +80,46 @@ for i in {1..1}; do
     GO_PID=$!
     echo "Started Go program instance $i with PID $GO_PID and config $CONFIG_FILE"
 
-    # Store PIDs to kill them later if needed
+    # Store PIDs and status to kill and restart them later if needed
     SIMULATOR_PIDS+=($SIMULATOR_PID)
     GO_PIDS+=($GO_PID)
+    GO_STATUS+=(1) # 1 means running, 0 means stopped
+}
+
+# Function to toggle the Go program instance
+toggle_go_instance() {
+    local i=$1
+    if [ ${GO_STATUS[$i]} -eq 1 ]; then
+        kill ${GO_PIDS[$i]}
+        GO_STATUS[$i]=0
+        echo "Stopped Go program instance $((i+1)) with PID ${GO_PIDS[$i]}"
+    else
+        CONFIG_FILE="config_$((i+1)).json"
+        Y_OFFSET=$(( i * 300 ))
+        xterm -hold -geometry 150x20+400+$Y_OFFSET -e "go run \"$ELEVATOR_PROGRAM\" -config=\"$CONFIG_FILE\"" &
+        GO_PIDS[$i]=$!
+        GO_STATUS[$i]=1
+        echo "Restarted Go program instance $((i+1)) with PID ${GO_PIDS[$i]}"
+    fi
+}
+
+# Create initial instances
+for i in {1..2}; do
+    start_elevator_instance $i
 done
 
-# Wait for user to press Enter to kill all instances and cleanup
-read -p "Press Enter to kill all instances..."
-cleanup
+# Wait for user input to add new elevators, kill all instances, or toggle Go program instances
+while true; do
+    read -n 1 -s key
+    if [ "$key" = "e" ]; then
+        i=$(( ${#SIMULATOR_PIDS[@]} + 1 ))
+        start_elevator_instance $i
+    elif [ "$key" = "" ]; then
+        cleanup
+    elif [[ "$key" =~ [0-9] ]]; then
+        i=$((key - 1))
+        if [ $i -lt ${#GO_PIDS[@]} ]; then
+            toggle_go_instance $i
+        fi
+    fi
+done

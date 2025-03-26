@@ -1,6 +1,8 @@
 package orders
 
 import (
+	"log"
+
 	"group48.ttk4145.ntnu/elevators/internal/models/elevator"
 	"group48.ttk4145.ntnu/elevators/internal/models/request"
 )
@@ -29,52 +31,63 @@ func newCache() *cache {
 }
 
 // AddRequest adds a request to the cache and returns true if the cache changed
-func (r *cache) AddRequest(req request.Request) (didChange bool) {
+func (r *cache) AddRequest(req request.Request) {
 	status := req.Status == request.Confirmed
-	if request.IsFromHall(req) {
-		return r.addHallRequest(req.Origin.GetFloor(), req.Origin.(request.Hall).Direction, status)
-	}
 
-	// Must be a cab request
-	return r.addCabRequest(req.Origin.(request.Cab).Id, req.Origin.GetFloor(), status)
+	if request.IsFromHall(req) {
+		r.addHallRequest(req.Origin.GetFloor(), req.Origin.(request.Hall).Direction, status)
+	} else {
+		// Must be a cab request
+		r.addCabRequest(req.Origin.(request.Cab).Id, req.Origin.GetFloor(), status)
+	}
 }
 
-// addHallRequest adds a hall request to the cache and returns true if the cache changed
-func (r *cache) addHallRequest(floor elevator.Floor, direction request.Direction, status bool) (didChange bool) {
-	hr := r.Hr
-	oldStatus := hr[floor][direction]
-	hr[floor][direction] = status
-	r.Hr = hr
-	return oldStatus != status
+// addHallRequest adds a hall request to the cache
+func (r *cache) addHallRequest(floor elevator.Floor, direction request.Direction, status bool) {
+	if r.Hr[floor][direction] == status {
+		return
+	}
+
+	r.Hr[floor][direction] = status
+	log.Printf("[orderserver] [cache] Changed cached hall request status for floor %v and direction %v:\n\t%v -> %v", floor, direction, !status, status)
 }
 
 // addCabRequest adds a cab request to the cache and returns true if the cache changed
-func (r *cache) addCabRequest(id elevator.Id, floor elevator.Floor, status bool) (didChange bool) {
+func (r *cache) addCabRequest(id elevator.Id, floor elevator.Floor, status bool) {
 	cr, ok := r.Cr[id]
 	if !ok {
 		cr = cabRequests{}
 	}
-	oldStatus := cr[floor]
+
+	if cr[floor] == status {
+		return
+	}
+
 	cr[floor] = status
 	r.Cr[id] = cr
-	return oldStatus != status
+
+	log.Printf("[orderserver] [cache] Changed cached cab request status for elevator %v and floor %v:\n\t%v -> %v", id, floor, !status, status)
 }
 
 // AddElevatorState adds an elevator state to the cache and returns true if the cache changed
-func (r *cache) AddElevatorState(id elevator.Id, state elevator.State) (didChange bool) {
-	oldState, ok := r.States[id]
-	if !ok {
-		r.States[id] = state
-		r.Cr[id] = cabRequests{} // Initialize cab requests for the new elevator
-		return true
+func (r *cache) AddElevatorState(id elevator.Id, state elevator.State) {
+	if s, ok := r.States[id]; ok && s == state {
+		return
 	}
 
-	if oldState == state {
-		return false
+	if _, ok := r.Cr[id]; !ok {
+		// Initialize cab requests for the new elevator if it does not exist
+		// This is needed to ensure that the cache gets consistent
+		// Only when consistent, the order server will calculate new orders
+		// Otherwise, the local elevator might get stuck in a state where it does not receive any orders
+		// Until a cab request is made
+		// A check if already initialized is needed to avoid overwriting existing cab requests
+		r.Cr[id] = cabRequests{}
 	}
 
+	oldState := r.States[id]
 	r.States[id] = state
-	return true
+	log.Printf("[orderserver] [cache] Changed cached elevator state for elevator %v:\n\t%v", id, oldState.DiffString(state))
 }
 
 // ProcessAliveUpdate updates the cache with the latest alive information
@@ -96,6 +109,7 @@ func (r *cache) ProcessAliveUpdate(alive []elevator.Id) {
 			delete(r.States, id)
 			delete(r.Cr, id)
 			delete(r.AlivePeers, id)
+			log.Printf("[orderserver] [cache] Removed peer %v from cache as it died", id)
 		}
 	}
 }
