@@ -58,6 +58,7 @@ trap cleanup INT
 # Function to start a new elevator instance
 start_elevator_instance() {
     local i=$1
+    
     SIMULATOR_PORT=$((SIMULATOR_BASE_PORT + i))
     CONFIG_FILE="config_$i.json"
 
@@ -69,11 +70,13 @@ start_elevator_instance() {
 
     # Start the simulator in a new terminal
     xterm -hold -geometry 50x20+0+$Y_OFFSET -e "\"$SIMULATOR_EXECUTABLE\" --port $SIMULATOR_PORT" &
+    
     SIMULATOR_PID=$!
     echo "Started simulator on port $SIMULATOR_PORT with PID $SIMULATOR_PID"
 
     # Start the Go program in a new terminal
     xterm -hold -geometry 150x20+400+$Y_OFFSET -e "go run \"$ELEVATOR_PROGRAM\" -config=\"$CONFIG_FILE\"" &
+
     GO_PID=$!
     echo "Started Go program instance $i with PID $GO_PID and config $CONFIG_FILE"
 
